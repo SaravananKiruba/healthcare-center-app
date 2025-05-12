@@ -54,14 +54,7 @@ import {
 } from 'react-icons/fi';
 import { useAppContext } from '../../context/AppContext';
 
-// Import components for each tab
-import MedicalHistoryTab from '../../components/MedicalHistory/MedicalHistoryTab';
-import PhysicalGeneralsTab from '../../components/PhysicalGenerals/PhysicalGeneralsTab';
-import MenstrualHistoryTab from '../../components/MenstrualHistory/MenstrualHistoryTab';
-import FoodHabitsTab from '../../components/FoodHabits/FoodHabitsTab';
-import InvestigationsTab from '../../components/Investigations/InvestigationsTab';
-import TreatmentTab from '../../components/Treatment/TreatmentTab';
-import BillingTab from '../../components/Billing/BillingTab';
+// Placeholder components for tabs - these would be imported from their own files in a complete implementation
 
 const PatientView = () => {
   const { id } = useParams();
@@ -85,15 +78,21 @@ const PatientView = () => {
       </Box>
     );
   }
-  
-  // Format date for display
+    // Format date for display
   const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    }).format(date);
+    try {
+      if (!dateString) return "N/A";
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return dateString; // Return original string if invalid
+      
+      return new Intl.DateTimeFormat('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      }).format(date);
+    } catch (error) {
+      return dateString || "N/A";
+    }
   };
   
   // Handle delete patient

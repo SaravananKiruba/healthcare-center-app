@@ -74,19 +74,28 @@ const StatCard = ({ title, stat, icon, helpText, accentColor }) => {
 
 const Dashboard = () => {
   const { patients } = useAppContext();
-  
-  // Get today's patients (using mock data)
+    // Get today's patients (using mock data)
   const today = new Date().toISOString().split('T')[0];
   const todaysPatients = patients.filter((patient) => {
-    const patientDate = new Date(patient.createdAt).toISOString().split('T')[0];
-    return patientDate === today;
+    try {
+      if (!patient.createdAt) return false;
+      const patientDate = new Date(patient.createdAt).toISOString().split('T')[0];
+      return patientDate === today;
+    } catch (error) {
+      return false;
+    }
   });
   
   // Mock data for dashboard
   const todaysPayments = patients.reduce((total, patient) => {
     const todaysInvoices = patient.invoices?.filter((invoice) => {
-      const invoiceDate = new Date(invoice.date).toISOString().split('T')[0];
-      return invoiceDate === today;
+      try {
+        if (!invoice.date) return false;
+        const invoiceDate = new Date(invoice.date).toISOString().split('T')[0];
+        return invoiceDate === today;
+      } catch (error) {
+        return false;
+      }
     }) || [];
     
     return total + todaysInvoices.reduce((sum, invoice) => sum + invoice.total, 0);

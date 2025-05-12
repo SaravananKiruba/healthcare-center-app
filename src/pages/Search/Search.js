@@ -28,6 +28,7 @@ import {
   HStack,
   VStack,
   IconButton,
+  Icon,
 } from '@chakra-ui/react';
 import { Link as RouterLink } from 'react-router-dom';
 import {

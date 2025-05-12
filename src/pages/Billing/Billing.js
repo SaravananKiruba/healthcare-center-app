@@ -56,48 +56,60 @@ const Billing = () => {
     // Filter by search query
     const matchesSearch = 
       invoice.patientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      invoice.id.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    // Filter by payment status
+      invoice.id.toLowerCase().includes(searchQuery.toLowerCase());    // Filter by payment status
     const matchesStatus = 
       statusFilter === 'all' || 
       invoice.paymentStatus.toLowerCase() === statusFilter.toLowerCase();
     
     // Filter by date (simplified for this demo)
-    const invoiceDate = new Date(invoice.date);
-    const today = new Date();
-    const isToday = 
-      invoiceDate.getDate() === today.getDate() &&
-      invoiceDate.getMonth() === today.getMonth() &&
-      invoiceDate.getFullYear() === today.getFullYear();
-    
-    const isThisWeek = () => {
-      const startOfWeek = new Date(today);
-      startOfWeek.setDate(today.getDate() - today.getDay());
-      return invoiceDate >= startOfWeek;
-    };
-    
-    const isThisMonth = 
-      invoiceDate.getMonth() === today.getMonth() &&
-      invoiceDate.getFullYear() === today.getFullYear();
-    
-    const matchesDate = 
-      dateFilter === 'all' ||
-      (dateFilter === 'today' && isToday) ||
-      (dateFilter === 'week' && isThisWeek()) ||
-      (dateFilter === 'month' && isThisMonth);
-    
-    return matchesSearch && matchesStatus && matchesDate;
+    try {
+      if (!invoice.date) return matchesSearch && matchesStatus;
+      
+      const invoiceDate = new Date(invoice.date);
+      if (isNaN(invoiceDate.getTime())) return matchesSearch && matchesStatus;
+      
+      const today = new Date();
+      const isToday = 
+        invoiceDate.getDate() === today.getDate() &&
+        invoiceDate.getMonth() === today.getMonth() &&
+        invoiceDate.getFullYear() === today.getFullYear();
+      
+      const isThisWeek = () => {
+        const startOfWeek = new Date(today);
+        startOfWeek.setDate(today.getDate() - today.getDay());
+        return invoiceDate >= startOfWeek;
+      };
+      
+      const isThisMonth = 
+        invoiceDate.getMonth() === today.getMonth() &&
+        invoiceDate.getFullYear() === today.getFullYear();
+      
+      const matchesDate = 
+        dateFilter === 'all' ||
+        (dateFilter === 'today' && isToday) ||
+        (dateFilter === 'week' && isThisWeek()) ||
+        (dateFilter === 'month' && isThisMonth);
+      
+      return matchesSearch && matchesStatus && matchesDate;
+    } catch (error) {
+      return matchesSearch && matchesStatus;
+    }
   });
-  
-  // Format date for display
+    // Format date for display
   const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    }).format(date);
+    try {
+      if (!dateString) return "N/A";
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return dateString; // Return original string if invalid
+      
+      return new Intl.DateTimeFormat('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      }).format(date);
+    } catch (error) {
+      return dateString || "N/A";
+    }
   };
   
   // Calculate total amounts

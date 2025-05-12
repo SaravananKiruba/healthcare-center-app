@@ -147,14 +147,13 @@ const Sidebar = ({ isOpen, onClose }) => {
             borderRadius="md"
             cursor="pointer"
           >
-            <HStack spacing="3">
-              <Badge colorScheme={
-                currentUser.role === 'admin' ? 'purple' : 
-                currentUser.role === 'doctor' ? 'green' : 'blue'
+            <HStack spacing="3">              <Badge colorScheme={
+                currentUser?.role === 'admin' ? 'purple' : 
+                currentUser?.role === 'doctor' ? 'green' : 'blue'
               }>
-                {currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1)}
+                {currentUser?.role ? currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1) : 'User'}
               </Badge>
-              <Text flex="1" fontSize="sm">{currentUser.name}</Text>
+              <Text flex="1" fontSize="sm">{currentUser?.name || 'User'}</Text>
               <FiChevronDown size={16} />
             </HStack>
           </MenuButton>
@@ -200,10 +199,9 @@ const Header = ({ onOpen }) => {
       <HStack spacing="4">
         <Menu>
           <MenuButton py={2} transition="all 0.3s" _focus={{ boxShadow: 'none' }}>
-            <HStack>
-              <Avatar
+            <HStack>              <Avatar
                 size="sm"
-                name={currentUser.name}
+                name={currentUser?.name || 'User'}
                 bg="brand.500"
               />
               <VStack
@@ -211,10 +209,9 @@ const Header = ({ onOpen }) => {
                 alignItems="flex-start"
                 spacing="1px"
                 ml="2"
-              >
-                <Text fontSize="sm">{currentUser.name}</Text>
+              >                <Text fontSize="sm">{currentUser?.name || 'User'}</Text>
                 <Text fontSize="xs" color="gray.600">
-                  {currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1)}
+                  {currentUser?.role ? currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1) : 'Guest'}
                 </Text>
               </VStack>
               <Box display={{ base: 'none', md: 'flex' }}>
