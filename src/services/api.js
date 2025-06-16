@@ -32,11 +32,17 @@ api.interceptors.response.use(
 );
 
 export const authAPI = {
-    login: (email, password) =>
-        api.post('/token', new URLSearchParams({
-            'username': email,
-            'password': password,
-        })),
+    login: (email, password) => {
+        const formData = new URLSearchParams();
+        formData.append('username', email);
+        formData.append('password', password);
+        
+        return api.post('/token', formData, {
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+        });
+    },
     createUser: (userData) => api.post('/users/', userData),
     getCurrentUser: () => api.get('/me'),
     getUsers: () => api.get('/users/'),

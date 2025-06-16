@@ -63,11 +63,9 @@ const Login = ({ onLogin }) => {
       });
 
       onLogin(user);
-    } catch (err) {
-      setError(
-        err.response?.data?.detail || 
-        'Login failed. Please check your credentials.'
-      );
+    } catch (err) {      const errorMessage = err.response?.data?.detail || 'Login failed. Please check your credentials.';
+      // Ensure the error is a string, not an object
+      setError(typeof errorMessage === 'object' ? JSON.stringify(errorMessage) : errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -110,11 +108,10 @@ const Login = ({ onLogin }) => {
 
         <CardBody>
           <form onSubmit={handleSubmit}>
-            <VStack spacing={4}>
-              {error && (
+            <VStack spacing={4}>              {error && (
                 <Alert status="error" rounded="md">
                   <AlertIcon />
-                  {error}
+                  {typeof error === 'object' ? (error.msg || 'Login failed. Please check your credentials.') : error}
                 </Alert>
               )}
 

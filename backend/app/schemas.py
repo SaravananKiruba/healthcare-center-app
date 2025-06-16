@@ -15,7 +15,7 @@ class User(UserBase):
     is_active: bool
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class Token(BaseModel):
     access_token: str
@@ -50,7 +50,7 @@ class Patient(PatientBase):
     invoices: List['Invoice'] = []
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class InvestigationBase(BaseModel):
     type: str
@@ -66,7 +66,7 @@ class Investigation(InvestigationBase):
     patient_id: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class TreatmentBase(BaseModel):
     date: datetime
@@ -82,7 +82,7 @@ class Treatment(TreatmentBase):
     patient_id: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class InvoiceBase(BaseModel):
     date: datetime
@@ -105,4 +105,4 @@ class Invoice(InvoiceBase):
     patient_id: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
