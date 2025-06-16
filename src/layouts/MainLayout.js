@@ -21,6 +21,7 @@ import {
   Badge,
   Image,
   Tooltip,
+  Button,
 } from '@chakra-ui/react';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 import {
@@ -37,7 +38,7 @@ import {
   FiBarChart2,
   FiPlusCircle,
 } from 'react-icons/fi';
-import { useAppContext } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 
 // Logo component
 const Logo = () => {
@@ -50,16 +51,26 @@ const Logo = () => {
   );
 };
 
-// Navigation items
-const NavItems = [
-  { name: 'Dashboard', icon: FiHome, path: '/' },
-  { name: 'Patient Registration', icon: FiPlusCircle, path: '/patient/register' },
-  { name: 'Patients', icon: FiUsers, path: '/patients' },
-  { name: 'Billing', icon: FiDollarSign, path: '/billing' },
-  { name: 'Reports', icon: FiBarChart2, path: '/reports' },
-  { name: 'Search', icon: FiSearch, path: '/search' },
-  { name: 'Settings', icon: FiSettings, path: '/settings' },
-];
+// Navigation items with role-based access
+const getNavItems = (userRole) => {
+  const baseItems = [
+    { name: 'Dashboard', icon: FiHome, path: '/', roles: ['admin', 'doctor', 'clerk'] },
+    { name: 'Search', icon: FiSearch, path: '/search', roles: ['admin', 'doctor', 'clerk'] },
+  ];
+
+  const roleBasedItems = [
+    { name: 'Patient Registration', icon: FiPlusCircle, path: '/patient/register', roles: ['admin', 'doctor', 'clerk'] },
+    { name: 'Patients', icon: FiUsers, path: '/patients', roles: ['admin', 'doctor', 'clerk'] },
+    { name: 'Billing', icon: FiDollarSign, path: '/billing', roles: ['admin', 'clerk'] },
+    { name: 'Reports', icon: FiBarChart2, path: '/reports', roles: ['admin', 'doctor', 'clerk'] },
+    { name: 'Settings', icon: FiSettings, path: '/settings', roles: ['admin'] },
+  ];
+
+  return [
+    ...baseItems,
+    ...roleBasedItems.filter(item => item.roles.includes(userRole))
+  ];
+};
 
 // NavItem component
 const NavItem = ({ icon, children, path, active }) => {
@@ -95,7 +106,8 @@ const NavItem = ({ icon, children, path, active }) => {
 // Sidebar component
 const Sidebar = ({ isOpen, onClose }) => {
   const location = useLocation();
-  const { currentUser, changeUserRole } = useAppContext();
+  const { user } = useAuth();
+  const navItems = getNavItems(user?.role || 'clerk');
   
   return (
     <Box
@@ -118,9 +130,8 @@ const Sidebar = ({ isOpen, onClose }) => {
         <Logo />
         <CloseButton display={{ base: 'flex', md: 'none' }} onClick={onClose} />
       </Flex>
-      
-      <VStack align="stretch" spacing={0}>
-        {NavItems.map((item) => (
+        <VStack align="stretch" spacing={0}>
+        {navItems.map((item) => (
           <NavItem
             key={item.name}
             icon={item.icon}
@@ -134,35 +145,15 @@ const Sidebar = ({ isOpen, onClose }) => {
       
       <Box mt="10" px="4">
         <Text fontSize="sm" fontWeight="semibold" mb="2">
-          Current Role
-        </Text>
-        <Menu>
-          <MenuButton
-            w="full"
-            as={Box}
-            py="2"
-            px="3"
-            border="1px"
-            borderColor="gray.200"
-            borderRadius="md"
-            cursor="pointer"
-          >
-            <HStack spacing="3">              <Badge colorScheme={
-                currentUser?.role === 'admin' ? 'purple' : 
-                currentUser?.role === 'doctor' ? 'green' : 'blue'
-              }>
-                {currentUser?.role ? currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1) : 'User'}
-              </Badge>
-              <Text flex="1" fontSize="sm">{currentUser?.name || 'User'}</Text>
-              <FiChevronDown size={16} />
-            </HStack>
-          </MenuButton>
-          <MenuList>
-            <MenuItem onClick={() => changeUserRole('admin')}>Admin</MenuItem>
-            <MenuItem onClick={() => changeUserRole('doctor')}>Doctor</MenuItem>
-            <MenuItem onClick={() => changeUserRole('clerk')}>Clerk</MenuItem>
-          </MenuList>
-        </Menu>
+          Current User
+        </Text>        <VStack align="start" spacing={1}>
+          <Text fontSize="sm" color="gray.600">
+            {user?.full_name}
+          </Text>
+          <Badge colorScheme="brand" size="sm">
+            {user?.role?.toUpperCase()}
+          </Badge>
+        </VStack>
       </Box>
     </Box>
   );
@@ -170,7 +161,7 @@ const Sidebar = ({ isOpen, onClose }) => {
 
 // Header component
 const Header = ({ onOpen }) => {
-  const { currentUser } = useAppContext();
+  const { user, logout } = useAuth();
   
   return (
     <Flex
@@ -195,13 +186,13 @@ const Header = ({ onOpen }) => {
       <Box display={{ base: 'flex', md: 'none' }}>
         <Logo />
       </Box>
-      
-      <HStack spacing="4">
+        <HStack spacing="4">
         <Menu>
           <MenuButton py={2} transition="all 0.3s" _focus={{ boxShadow: 'none' }}>
-            <HStack>              <Avatar
+            <HStack>
+              <Avatar
                 size="sm"
-                name={currentUser?.name || 'User'}
+                name={user?.full_name || 'User'}
                 bg="brand.500"
               />
               <VStack
@@ -209,9 +200,10 @@ const Header = ({ onOpen }) => {
                 alignItems="flex-start"
                 spacing="1px"
                 ml="2"
-              >                <Text fontSize="sm">{currentUser?.name || 'User'}</Text>
+              >
+                <Text fontSize="sm">{user?.full_name || 'User'}</Text>
                 <Text fontSize="xs" color="gray.600">
-                  {currentUser?.role ? currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1) : 'Guest'}
+                  {user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'Guest'}
                 </Text>
               </VStack>
               <Box display={{ base: 'none', md: 'flex' }}>
@@ -221,8 +213,8 @@ const Header = ({ onOpen }) => {
           </MenuButton>
           <MenuList>
             <MenuItem icon={<FiUser />}>Profile</MenuItem>
-            <MenuItem icon={<FiSettings />}>Settings</MenuItem>
-            <MenuItem icon={<FiLogOut />}>Sign out</MenuItem>
+            <MenuItem icon={<FiSettings />} as={RouterLink} to="/settings">Settings</MenuItem>
+            <MenuItem icon={<FiLogOut />} onClick={logout}>Sign out</MenuItem>
           </MenuList>
         </Menu>
       </HStack>

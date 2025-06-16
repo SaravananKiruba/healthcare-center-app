@@ -10,20 +10,12 @@ from datetime import datetime, timedelta
 
 models.Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Healthcare Center API")
+app = FastAPI(title="Healthcare Center API", version="1.0.0")
 
 # Configure CORS
-origins = [
-    "http://localhost",
-    "http://localhost:3000",
-    "http://localhost:80",
-    "http://127.0.0.1:3000",
-    "http://0.0.0.0:3000",
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, replace with specific origins
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],  
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -31,7 +23,7 @@ app.add_middleware(
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-# Authentication endpoint
+# Authentication endpoints
 @app.post("/token", response_model=schemas.Token)
 async def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
@@ -46,13 +38,30 @@ async def login_for_access_token(
         )
     access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = auth.create_access_token(
-        data={"sub": user.email}, expires_delta=access_token_expires
+        data={"sub": user.email, "role": user.role}, expires_delta=access_token_expires
     )
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {
+        "access_token": access_token, 
+        "token_type": "bearer",
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "full_name": user.full_name,
+            "role": user.role
+        }
+    }
 
-# User endpoints
+@app.get("/me", response_model=schemas.User)
+async def read_users_me(current_user: models.User = Depends(auth.get_current_active_user)):
+    return current_user
+
+# User management endpoints (admin only)
 @app.post("/users/", response_model=schemas.User)
-def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
+def create_user(
+    user: schemas.UserCreate, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.require_role(["admin"]))
+):
     db_user = db.query(models.User).filter(models.User.email == user.email).first()
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -69,9 +78,23 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     db.refresh(db_user)
     return db_user
 
+@app.get("/users/", response_model=List[schemas.User])
+def read_users(
+    skip: int = 0, 
+    limit: int = 100, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.require_role(["admin"]))
+):
+    users = db.query(models.User).offset(skip).limit(limit).all()
+    return users
+
 # Patient endpoints
 @app.post("/patients/", response_model=schemas.Patient)
-def create_patient(patient: schemas.PatientCreate, db: Session = Depends(get_db)):
+def create_patient(
+    patient: schemas.PatientCreate, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.require_role(["admin", "doctor", "clerk"]))
+):
     db_patient = models.Patient(
         id=f"p{uuid4().hex[:8]}",
         **patient.dict()
@@ -82,20 +105,65 @@ def create_patient(patient: schemas.PatientCreate, db: Session = Depends(get_db)
     return db_patient
 
 @app.get("/patients/", response_model=List[schemas.Patient])
-def read_patients(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+def read_patients(
+    skip: int = 0, 
+    limit: int = 100, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_active_user)
+):
     patients = db.query(models.Patient).offset(skip).limit(limit).all()
     return patients
 
 @app.get("/patients/{patient_id}", response_model=schemas.Patient)
-def read_patient(patient_id: str, db: Session = Depends(get_db)):
+def read_patient(
+    patient_id: str, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_active_user)
+):
     patient = db.query(models.Patient).filter(models.Patient.id == patient_id).first()
     if patient is None:
         raise HTTPException(status_code=404, detail="Patient not found")
     return patient
 
+@app.put("/patients/{patient_id}", response_model=schemas.Patient)
+def update_patient(
+    patient_id: str, 
+    patient: schemas.PatientCreate, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.require_role(["admin", "doctor", "clerk"]))
+):
+    db_patient = db.query(models.Patient).filter(models.Patient.id == patient_id).first()
+    if db_patient is None:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    
+    for field, value in patient.dict().items():
+        setattr(db_patient, field, value)
+    
+    db.commit()
+    db.refresh(db_patient)
+    return db_patient
+
+@app.delete("/patients/{patient_id}")
+def delete_patient(
+    patient_id: str, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.require_role(["admin"]))
+):
+    db_patient = db.query(models.Patient).filter(models.Patient.id == patient_id).first()
+    if db_patient is None:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    
+    db.delete(db_patient)
+    db.commit()
+    return {"message": "Patient deleted successfully"}
+
 # Investigation endpoints
 @app.post("/investigations/", response_model=schemas.Investigation)
-def create_investigation(investigation: schemas.InvestigationCreate, db: Session = Depends(get_db)):
+def create_investigation(
+    investigation: schemas.InvestigationCreate, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.require_role(["admin", "doctor"]))
+):
     db_investigation = models.Investigation(
         id=f"inv{uuid4().hex[:8]}",
         **investigation.dict()
@@ -105,9 +173,27 @@ def create_investigation(investigation: schemas.InvestigationCreate, db: Session
     db.refresh(db_investigation)
     return db_investigation
 
+@app.get("/investigations/", response_model=List[schemas.Investigation])
+def read_investigations(
+    patient_id: Optional[str] = None,
+    skip: int = 0, 
+    limit: int = 100, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_active_user)
+):
+    query = db.query(models.Investigation)
+    if patient_id:
+        query = query.filter(models.Investigation.patient_id == patient_id)
+    investigations = query.offset(skip).limit(limit).all()
+    return investigations
+
 # Treatment endpoints
 @app.post("/treatments/", response_model=schemas.Treatment)
-def create_treatment(treatment: schemas.TreatmentCreate, db: Session = Depends(get_db)):
+def create_treatment(
+    treatment: schemas.TreatmentCreate, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.require_role(["admin", "doctor"]))
+):
     db_treatment = models.Treatment(
         id=f"t{uuid4().hex[:8]}",
         **treatment.dict()
@@ -117,9 +203,27 @@ def create_treatment(treatment: schemas.TreatmentCreate, db: Session = Depends(g
     db.refresh(db_treatment)
     return db_treatment
 
+@app.get("/treatments/", response_model=List[schemas.Treatment])
+def read_treatments(
+    patient_id: Optional[str] = None,
+    skip: int = 0, 
+    limit: int = 100, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_active_user)
+):
+    query = db.query(models.Treatment)
+    if patient_id:
+        query = query.filter(models.Treatment.patient_id == patient_id)
+    treatments = query.offset(skip).limit(limit).all()
+    return treatments
+
 # Invoice endpoints
 @app.post("/invoices/", response_model=schemas.Invoice)
-def create_invoice(invoice: schemas.InvoiceCreate, db: Session = Depends(get_db)):
+def create_invoice(
+    invoice: schemas.InvoiceCreate, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.require_role(["admin", "clerk"]))
+):
     db_invoice = models.Invoice(
         id=f"inv{uuid4().hex[:8]}",
         **invoice.dict()
@@ -130,13 +234,43 @@ def create_invoice(invoice: schemas.InvoiceCreate, db: Session = Depends(get_db)
     return db_invoice
 
 @app.get("/invoices/", response_model=List[schemas.Invoice])
-def read_invoices(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    invoices = db.query(models.Invoice).offset(skip).limit(limit).all()
+def read_invoices(
+    patient_id: Optional[str] = None,
+    skip: int = 0, 
+    limit: int = 100, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_active_user)
+):
+    query = db.query(models.Invoice)
+    if patient_id:
+        query = query.filter(models.Invoice.patient_id == patient_id)
+    invoices = query.offset(skip).limit(limit).all()
     return invoices
+
+@app.put("/invoices/{invoice_id}", response_model=schemas.Invoice)
+def update_invoice(
+    invoice_id: str, 
+    invoice: schemas.InvoiceCreate, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.require_role(["admin", "clerk"]))
+):
+    db_invoice = db.query(models.Invoice).filter(models.Invoice.id == invoice_id).first()
+    if db_invoice is None:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    
+    for field, value in invoice.dict().items():
+        setattr(db_invoice, field, value)
+    
+    db.commit()
+    db.refresh(db_invoice)
+    return db_invoice
 
 # Dashboard stats endpoints
 @app.get("/stats/dashboard")
-def get_dashboard_stats(db: Session = Depends(get_db)):
+def get_dashboard_stats(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_active_user)
+):
     total_patients = db.query(models.Patient).count()
     total_invoices = db.query(models.Invoice).count()
     total_treatments = db.query(models.Treatment).count()
@@ -146,18 +280,35 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
     total_revenue = sum(invoice.total for invoice in invoices)
     paid_revenue = sum(invoice.amount_paid for invoice in invoices)
     
+    # Today's stats
+    today = datetime.now().date()
+    today_patients = db.query(models.Patient).filter(
+        models.Patient.created_at >= today
+    ).count()
+    
+    today_revenue = sum(
+        invoice.amount_paid for invoice in invoices 
+        if invoice.date and invoice.date.date() == today
+    )
+    
     return {
         "total_patients": total_patients,
         "total_invoices": total_invoices,
         "total_treatments": total_treatments,
         "total_revenue": total_revenue,
         "paid_revenue": paid_revenue,
-        "outstanding_revenue": total_revenue - paid_revenue
+        "outstanding_revenue": total_revenue - paid_revenue,
+        "today_patients": today_patients,
+        "today_revenue": today_revenue
     }
 
 # Search endpoints
 @app.get("/search/patients", response_model=List[schemas.Patient])
-def search_patients(q: str, db: Session = Depends(get_db)):
+def search_patients(
+    q: str, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_active_user)
+):
     patients = db.query(models.Patient).filter(
         models.Patient.name.contains(q) |
         models.Patient.mobile_number.contains(q)
@@ -166,7 +317,12 @@ def search_patients(q: str, db: Session = Depends(get_db)):
 
 # Update patient endpoint
 @app.put("/patients/{patient_id}", response_model=schemas.Patient)
-def update_patient(patient_id: str, patient: schemas.PatientCreate, db: Session = Depends(get_db)):
+def update_patient(
+    patient_id: str, 
+    patient: schemas.PatientCreate, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.require_role(["admin", "doctor", "clerk"]))
+):
     db_patient = db.query(models.Patient).filter(models.Patient.id == patient_id).first()
     if db_patient is None:
         raise HTTPException(status_code=404, detail="Patient not found")
@@ -180,7 +336,11 @@ def update_patient(patient_id: str, patient: schemas.PatientCreate, db: Session 
 
 # Delete patient endpoint
 @app.delete("/patients/{patient_id}")
-def delete_patient(patient_id: str, db: Session = Depends(get_db)):
+def delete_patient(
+    patient_id: str, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.require_role(["admin"]))
+):
     db_patient = db.query(models.Patient).filter(models.Patient.id == patient_id).first()
     if db_patient is None:
         raise HTTPException(status_code=404, detail="Patient not found")
@@ -193,3 +353,28 @@ def delete_patient(patient_id: str, db: Session = Depends(get_db)):
 @app.get("/health")
 def health_check():
     return {"status": "healthy", "message": "Healthcare Center API is running"}
+
+# Initialize default admin user
+@app.on_event("startup")
+async def startup_event():
+    from .database import SessionLocal
+    db = SessionLocal()
+    try:
+        # Check if admin user exists
+        admin_user = db.query(models.User).filter(models.User.email == "admin@healthcare.com").first()
+        if not admin_user:
+            # Create default admin user
+            hashed_password = auth.get_password_hash("admin123")
+            admin_user = models.User(
+                id=f"u{uuid4().hex[:8]}",
+                email="admin@healthcare.com",
+                hashed_password=hashed_password,
+                full_name="System Administrator",
+                role="admin",
+                is_active=True
+            )
+            db.add(admin_user)
+            db.commit()
+            print("Default admin user created: admin@healthcare.com / admin123")
+    finally:
+        db.close()

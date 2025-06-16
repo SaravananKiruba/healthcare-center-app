@@ -20,6 +20,7 @@ class User(UserBase):
 class Token(BaseModel):
     access_token: str
     token_type: str
+    user: Optional[dict] = None
 
 class TokenData(BaseModel):
     email: Optional[str] = None

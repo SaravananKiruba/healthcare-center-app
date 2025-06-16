@@ -2,10 +2,13 @@ import React from 'react';
 import { ChakraProvider } from '@chakra-ui/react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import theme from './theme/theme';
 import MainLayout from './layouts/MainLayout';
+import Login from './components/Auth/Login';
+import ProtectedRoute from './components/Auth/ProtectedRoute';
 
-// Import pages - these will be created later
+// Import pages
 import Dashboard from './pages/Dashboard/Dashboard';
 import PatientRegistration from './pages/PatientRegistration/PatientRegistration';
 import PatientList from './pages/PatientView/PatientList';
@@ -17,27 +20,90 @@ import Search from './pages/Search/Search';
 import Settings from './pages/Settings/Settings';
 import NotFound from './pages/NotFound';
 
+const AppContent = () => {
+  const { isAuthenticated, isLoading, login } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh' 
+      }}>
+        Loading...
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Login onLogin={login} />;
+  }
+
+  return (
+    <AppProvider>
+      <Router>
+        <MainLayout>
+          <Routes>
+            <Route path="/" element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/patient/register" element={
+              <ProtectedRoute roles={['admin', 'doctor', 'clerk']}>
+                <PatientRegistration />
+              </ProtectedRoute>
+            } />
+            <Route path="/patients" element={
+              <ProtectedRoute>
+                <PatientList />
+              </ProtectedRoute>
+            } />
+            <Route path="/patient/:id" element={
+              <ProtectedRoute>
+                <PatientView />
+              </ProtectedRoute>
+            } />
+            <Route path="/billing" element={
+              <ProtectedRoute roles={['admin', 'clerk']}>
+                <Billing />
+              </ProtectedRoute>
+            } />
+            <Route path="/billing/new/:patientId" element={
+              <ProtectedRoute roles={['admin', 'clerk']}>
+                <BillingForm />
+              </ProtectedRoute>
+            } />
+            <Route path="/reports" element={
+              <ProtectedRoute>
+                <Reports />
+              </ProtectedRoute>
+            } />
+            <Route path="/search" element={
+              <ProtectedRoute>
+                <Search />
+              </ProtectedRoute>
+            } />
+            <Route path="/settings" element={
+              <ProtectedRoute roles={['admin']}>
+                <Settings />
+              </ProtectedRoute>
+            } />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </MainLayout>
+      </Router>
+    </AppProvider>
+  );
+};
+
 function App() {
   return (
     <ChakraProvider theme={theme}>
-      <AppProvider>
-        <Router>
-          <MainLayout>
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/patient/register" element={<PatientRegistration />} />
-              <Route path="/patients" element={<PatientList />} />
-              <Route path="/patient/:id" element={<PatientView />} />
-              <Route path="/billing" element={<Billing />} />
-              <Route path="/billing/new/:patientId" element={<BillingForm />} />
-              <Route path="/reports" element={<Reports />} />
-              <Route path="/search" element={<Search />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </MainLayout>
-        </Router>
-      </AppProvider>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
     </ChakraProvider>
   );
 }

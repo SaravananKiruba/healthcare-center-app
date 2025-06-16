@@ -22,476 +22,359 @@ import {
   HStack,
   Select,
   SimpleGrid,
-  Table,
-  Thead,
-  Tbody,
-  Tr,
-  Th,
-  Td,
-  TableContainer,
-  IconButton,
   useToast,
   useColorMode,
   Icon,
 } from '@chakra-ui/react';
 import {
   FiSave,
-  FiPlus,
-  FiTrash2,
   FiUser,
-  FiUserPlus,
   FiSettings,
   FiDatabase,
   FiDownload,
   FiUpload,
-  FiEdit,
 } from 'react-icons/fi';
-import { useAppContext } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
+import UserManagement from '../../components/UserManagement/UserManagement';
 
 const Settings = () => {
   const toast = useToast();
   const { colorMode, toggleColorMode } = useColorMode();
-  const { doctors, currentUser } = useAppContext();
-  const [isLoading, setIsLoading] = useState(false);
+  const { user, hasRole } = useAuth();
   
-  // General settings state
   const [generalSettings, setGeneralSettings] = useState({
-    centerName: 'Healthcare Center',
-    address: '123 Medical Street, Healthville, HV 12345',
-    contactNumber: '+1-555-123-4567',
-    email: 'contact@healthcarecenter.com',
-    taxId: 'TAX12345678',
+    clinicName: 'HealthCare Center',
+    address: '123 Medical Street, Health City',
+    phone: '+1 (555) 123-4567',
+    email: 'info@healthcare.com',
     currency: 'USD',
-    enableDarkMode: colorMode === 'dark',
-    showPatientIds: true,
-    enableSmsNotifications: false,
-    enableEmailNotifications: true,
+    language: 'en',
+    timezone: 'UTC',
   });
-  
-  // Handle settings change
-  const handleSettingChange = (field, value) => {
-    setGeneralSettings({
-      ...generalSettings,
-      [field]: value,
+
+  const [systemSettings, setSystemSettings] = useState({
+    autoBackup: true,
+    backupFrequency: 'daily',
+    enableNotifications: true,
+    enableSMS: false,
+    maxPatientRecords: 10000,
+  });
+
+  const handleSaveGeneral = () => {
+    // Save general settings logic here
+    toast({
+      title: 'Settings Saved',
+      description: 'General settings have been updated successfully.',
+      status: 'success',
+      duration: 3000,
+      isClosable: true,
     });
   };
-  
-  // Save settings
-  const handleSaveSettings = () => {
-    setIsLoading(true);
-    
-    // In a real app, this would save to a backend or localStorage
-    setTimeout(() => {
-      setIsLoading(false);
-      
-      toast({
-        title: 'Settings saved',
-        description: 'Your settings have been updated successfully.',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
-    }, 1000);
+
+  const handleSaveSystem = () => {
+    // Save system settings logic here
+    toast({
+      title: 'Settings Saved',
+      description: 'System settings have been updated successfully.',
+      status: 'success',
+      duration: 3000,
+      isClosable: true,
+    });
   };
-  
-  // Dark mode toggle
-  const handleDarkModeToggle = () => {
-    toggleColorMode();
-    handleSettingChange('enableDarkMode', !generalSettings.enableDarkMode);
-  };
-  
-  // Export data (mock)
+
   const handleExportData = () => {
+    // Export data logic here
     toast({
-      title: 'Data exported',
-      description: 'Your data has been exported successfully.',
-      status: 'success',
+      title: 'Export Started',
+      description: 'Data export has been initiated. You will receive a download link shortly.',
+      status: 'info',
       duration: 3000,
       isClosable: true,
     });
   };
-  
-  // Import data (mock)
+
   const handleImportData = () => {
+    // Import data logic here
     toast({
-      title: 'Data imported',
-      description: 'Your data has been imported successfully.',
-      status: 'success',
+      title: 'Import Ready',
+      description: 'Please select a file to import.',
+      status: 'info',
       duration: 3000,
       isClosable: true,
     });
   };
-  
+
   return (
-    <Box>
-      <Heading size="lg" mb="6">Settings</Heading>
+    <Box p={6}>
+      <Heading mb={6} color="brand.500">Settings</Heading>
       
-      <Tabs isLazy colorScheme="brand">
-        <TabList mb="6">
-          <Tab>
-            <Icon as={FiSettings} mr="2" />
-            General
-          </Tab>
-          <Tab>
-            <Icon as={FiUser} mr="2" />
-            Users & Staff
-          </Tab>
-          <Tab>
-            <Icon as={FiDatabase} mr="2" />
-            Data Management
-          </Tab>
+      <Tabs variant="enclosed" colorScheme="brand">
+        <TabList>
+          <Tab>General</Tab>
+          <Tab>System</Tab>
+          <Tab>Data Management</Tab>
+          {hasRole('admin') && <Tab>User Management</Tab>}
         </TabList>
-        
+
         <TabPanels>
-          {/* General Settings Tab */}
-          <TabPanel p="0">
-            <form onSubmit={(e) => { e.preventDefault(); handleSaveSettings(); }}>
-              <Card mb="6">
-                <CardHeader bg="brand.50" py="3">
-                  <Heading size="md">Healthcare Center Information</Heading>
-                </CardHeader>
-                <CardBody>
-                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing="6">
+          {/* General Settings */}
+          <TabPanel>
+            <Card>
+              <CardHeader>
+                <HStack>
+                  <Icon as={FiSettings} />
+                  <Heading size="md">General Settings</Heading>
+                </HStack>
+              </CardHeader>
+              <CardBody>
+                <VStack spacing={6} align="stretch">
+                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
                     <FormControl>
-                      <FormLabel>Center Name</FormLabel>
-                      <Input 
-                        value={generalSettings.centerName}
-                        onChange={(e) => handleSettingChange('centerName', e.target.value)}
+                      <FormLabel>Clinic Name</FormLabel>
+                      <Input
+                        value={generalSettings.clinicName}
+                        onChange={(e) => setGeneralSettings({
+                          ...generalSettings,
+                          clinicName: e.target.value
+                        })}
                       />
                     </FormControl>
-                    
+
                     <FormControl>
-                      <FormLabel>Tax ID / Registration Number</FormLabel>
-                      <Input 
-                        value={generalSettings.taxId}
-                        onChange={(e) => handleSettingChange('taxId', e.target.value)}
+                      <FormLabel>Phone Number</FormLabel>
+                      <Input
+                        value={generalSettings.phone}
+                        onChange={(e) => setGeneralSettings({
+                          ...generalSettings,
+                          phone: e.target.value
+                        })}
                       />
                     </FormControl>
-                    
-                    <FormControl gridColumn={{ md: "1 / -1" }}>
-                      <FormLabel>Address</FormLabel>
-                      <Input 
-                        value={generalSettings.address}
-                        onChange={(e) => handleSettingChange('address', e.target.value)}
-                      />
-                    </FormControl>
-                    
+
                     <FormControl>
-                      <FormLabel>Contact Number</FormLabel>
-                      <Input 
-                        value={generalSettings.contactNumber}
-                        onChange={(e) => handleSettingChange('contactNumber', e.target.value)}
-                      />
-                    </FormControl>
-                    
-                    <FormControl>
-                      <FormLabel>Email</FormLabel>
-                      <Input 
+                      <FormLabel>Email Address</FormLabel>
+                      <Input
+                        type="email"
                         value={generalSettings.email}
-                        onChange={(e) => handleSettingChange('email', e.target.value)}
+                        onChange={(e) => setGeneralSettings({
+                          ...generalSettings,
+                          email: e.target.value
+                        })}
                       />
                     </FormControl>
-                    
+
                     <FormControl>
                       <FormLabel>Currency</FormLabel>
-                      <Select 
+                      <Select
                         value={generalSettings.currency}
-                        onChange={(e) => handleSettingChange('currency', e.target.value)}
+                        onChange={(e) => setGeneralSettings({
+                          ...generalSettings,
+                          currency: e.target.value
+                        })}
                       >
-                        <option value="USD">USD - US Dollar</option>
-                        <option value="EUR">EUR - Euro</option>
-                        <option value="GBP">GBP - British Pound</option>
-                        <option value="INR">INR - Indian Rupee</option>
-                        <option value="AUD">AUD - Australian Dollar</option>
+                        <option value="USD">USD ($)</option>
+                        <option value="EUR">EUR (€)</option>
+                        <option value="GBP">GBP (£)</option>
+                        <option value="INR">INR (₹)</option>
                       </Select>
                     </FormControl>
                   </SimpleGrid>
-                </CardBody>
-              </Card>
-              
-              <Card mb="6">
-                <CardHeader bg="brand.50" py="3">
-                  <Heading size="md">System Preferences</Heading>
-                </CardHeader>
-                <CardBody>
-                  <VStack align="stretch" spacing="4">
-                    <Flex justify="space-between" align="center">
-                      <Box>
-                        <Text fontWeight="medium">Dark Mode</Text>
-                        <Text fontSize="sm" color="gray.600">
-                          Switch between light and dark themes
-                        </Text>
-                      </Box>
-                      <Switch 
-                        isChecked={generalSettings.enableDarkMode}
-                        onChange={handleDarkModeToggle}
-                        colorScheme="brand"
+
+                  <FormControl>
+                    <FormLabel>Address</FormLabel>
+                    <Input
+                      value={generalSettings.address}
+                      onChange={(e) => setGeneralSettings({
+                        ...generalSettings,
+                        address: e.target.value
+                      })}
+                    />
+                  </FormControl>
+
+                  <HStack>
+                    <FormControl display="flex" alignItems="center">
+                      <FormLabel mb="0">Dark Mode</FormLabel>
+                      <Switch
+                        isChecked={colorMode === 'dark'}
+                        onChange={toggleColorMode}
                       />
-                    </Flex>
-                    
-                    <Divider />
-                    
-                    <Flex justify="space-between" align="center">
-                      <Box>
-                        <Text fontWeight="medium">Show Patient IDs</Text>
-                        <Text fontSize="sm" color="gray.600">
-                          Display patient IDs in listings and reports
-                        </Text>
-                      </Box>
-                      <Switch 
-                        isChecked={generalSettings.showPatientIds}
-                        onChange={(e) => handleSettingChange('showPatientIds', e.target.checked)}
-                        colorScheme="brand"
-                      />
-                    </Flex>
-                    
-                    <Divider />
-                    
-                    <Flex justify="space-between" align="center">
-                      <Box>
-                        <Text fontWeight="medium">SMS Notifications</Text>
-                        <Text fontSize="sm" color="gray.600">
-                          Send SMS alerts for appointments and reminders
-                        </Text>
-                      </Box>
-                      <Switch 
-                        isChecked={generalSettings.enableSmsNotifications}
-                        onChange={(e) => handleSettingChange('enableSmsNotifications', e.target.checked)}
-                        colorScheme="brand"
-                      />
-                    </Flex>
-                    
-                    <Divider />
-                    
-                    <Flex justify="space-between" align="center">
-                      <Box>
-                        <Text fontWeight="medium">Email Notifications</Text>
-                        <Text fontSize="sm" color="gray.600">
-                          Send email alerts for reports and invoices
-                        </Text>
-                      </Box>
-                      <Switch 
-                        isChecked={generalSettings.enableEmailNotifications}
-                        onChange={(e) => handleSettingChange('enableEmailNotifications', e.target.checked)}
-                        colorScheme="brand"
-                      />
-                    </Flex>
-                  </VStack>
-                </CardBody>
-              </Card>
-              
-              <Flex justify="flex-end">
-                <Button
-                  type="submit"
-                  colorScheme="brand"
-                  leftIcon={<FiSave />}
-                  isLoading={isLoading}
-                >
-                  Save Settings
-                </Button>
-              </Flex>
-            </form>
-          </TabPanel>
-          
-          {/* Users & Staff Tab */}
-          <TabPanel p="0">
-            <Card mb="6">
-              <CardHeader bg="brand.50" py="3">
-                <Flex justify="space-between" align="center">
-                  <Heading size="md">Doctors & Staff</Heading>
-                  <Button leftIcon={<FiUserPlus />} size="sm" colorScheme="brand">
-                    Add New
+                    </FormControl>
+                  </HStack>
+
+                  <Button
+                    leftIcon={<FiSave />}
+                    colorScheme="brand"
+                    onClick={handleSaveGeneral}
+                    alignSelf="flex-start"
+                  >
+                    Save General Settings
                   </Button>
-                </Flex>
-              </CardHeader>
-              <CardBody p="0">
-                <TableContainer>
-                  <Table variant="simple">
-                    <Thead bg="gray.50">
-                      <Tr>
-                        <Th>Name</Th>
-                        <Th>Specialization</Th>
-                        <Th>Status</Th>
-                        <Th>Actions</Th>
-                      </Tr>
-                    </Thead>
-                    <Tbody>
-                      {doctors.map((doctor) => (
-                        <Tr key={doctor.id}>
-                          <Td fontWeight="medium">{doctor.name}</Td>
-                          <Td>{doctor.specialization}</Td>
-                          <Td>
-                            <Text color="green.500">Active</Text>
-                          </Td>
-                          <Td>
-                            <HStack>
-                              <IconButton
-                                icon={<FiEdit />}
-                                aria-label="Edit doctor"
-                                size="sm"
-                                variant="ghost"
-                              />
-                              <IconButton
-                                icon={<FiTrash2 />}
-                                aria-label="Delete doctor"
-                                size="sm"
-                                variant="ghost"
-                                colorScheme="red"
-                              />
-                            </HStack>
-                          </Td>
-                        </Tr>
-                      ))}
-                    </Tbody>
-                  </Table>
-                </TableContainer>
+                </VStack>
               </CardBody>
             </Card>
-            
+          </TabPanel>
+
+          {/* System Settings */}
+          <TabPanel>
             <Card>
-              <CardHeader bg="brand.50" py="3">
-                <Flex justify="space-between" align="center">
-                  <Heading size="md">User Accounts</Heading>
-                  <Button leftIcon={<FiPlus />} size="sm" colorScheme="brand">
-                    Add User
-                  </Button>
-                </Flex>
-              </CardHeader>
-              <CardBody p="0">
-                <TableContainer>
-                  <Table variant="simple">
-                    <Thead bg="gray.50">
-                      <Tr>
-                        <Th>Name</Th>
-                        <Th>Role</Th>
-                        <Th>Email</Th>
-                        <Th>Actions</Th>
-                      </Tr>
-                    </Thead>
-                    <Tbody>
-                      <Tr>
-                        <Td fontWeight="medium">{currentUser.name}</Td>
-                        <Td>
-                          <Text textTransform="capitalize">{currentUser.role}</Text>
-                        </Td>
-                        <Td>admin@healthcare.com</Td>
-                        <Td>
-                          <HStack>
-                            <IconButton
-                              icon={<FiEdit />}
-                              aria-label="Edit user"
-                              size="sm"
-                              variant="ghost"
-                            />
-                          </HStack>
-                        </Td>
-                      </Tr>
-                      <Tr>
-                        <Td fontWeight="medium">Doctor User</Td>
-                        <Td>Doctor</Td>
-                        <Td>doctor@healthcare.com</Td>
-                        <Td>
-                          <HStack>
-                            <IconButton
-                              icon={<FiEdit />}
-                              aria-label="Edit user"
-                              size="sm"
-                              variant="ghost"
-                            />
-                            <IconButton
-                              icon={<FiTrash2 />}
-                              aria-label="Delete user"
-                              size="sm"
-                              variant="ghost"
-                              colorScheme="red"
-                            />
-                          </HStack>
-                        </Td>
-                      </Tr>
-                      <Tr>
-                        <Td fontWeight="medium">Clerk User</Td>
-                        <Td>Clerk</Td>
-                        <Td>clerk@healthcare.com</Td>
-                        <Td>
-                          <HStack>
-                            <IconButton
-                              icon={<FiEdit />}
-                              aria-label="Edit user"
-                              size="sm"
-                              variant="ghost"
-                            />
-                            <IconButton
-                              icon={<FiTrash2 />}
-                              aria-label="Delete user"
-                              size="sm"
-                              variant="ghost"
-                              colorScheme="red"
-                            />
-                          </HStack>
-                        </Td>
-                      </Tr>
-                    </Tbody>
-                  </Table>
-                </TableContainer>
-              </CardBody>
-            </Card>
-          </TabPanel>
-          
-          {/* Data Management Tab */}
-          <TabPanel p="0">
-            <Card mb="6">
-              <CardHeader bg="brand.50" py="3">
-                <Heading size="md">Backup & Restore</Heading>
+              <CardHeader>
+                <HStack>
+                  <Icon as={FiDatabase} />
+                  <Heading size="md">System Settings</Heading>
+                </HStack>
               </CardHeader>
               <CardBody>
-                <VStack align="stretch" spacing="6">
-                  <Box>
-                    <Heading size="sm" mb="3">Export Data</Heading>
-                    <Text mb="4">
-                      Export all data from the system as a JSON file for backup purposes.
+                <VStack spacing={6} align="stretch">
+                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
+                    <FormControl display="flex" alignItems="center">
+                      <FormLabel mb="0">Auto Backup</FormLabel>
+                      <Switch
+                        isChecked={systemSettings.autoBackup}
+                        onChange={(e) => setSystemSettings({
+                          ...systemSettings,
+                          autoBackup: e.target.checked
+                        })}
+                      />
+                    </FormControl>
+
+                    <FormControl>
+                      <FormLabel>Backup Frequency</FormLabel>
+                      <Select
+                        value={systemSettings.backupFrequency}
+                        onChange={(e) => setSystemSettings({
+                          ...systemSettings,
+                          backupFrequency: e.target.value
+                        })}
+                        isDisabled={!systemSettings.autoBackup}
+                      >
+                        <option value="hourly">Hourly</option>
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="monthly">Monthly</option>
+                      </Select>
+                    </FormControl>
+
+                    <FormControl display="flex" alignItems="center">
+                      <FormLabel mb="0">Enable Notifications</FormLabel>
+                      <Switch
+                        isChecked={systemSettings.enableNotifications}
+                        onChange={(e) => setSystemSettings({
+                          ...systemSettings,
+                          enableNotifications: e.target.checked
+                        })}
+                      />
+                    </FormControl>
+
+                    <FormControl display="flex" alignItems="center">
+                      <FormLabel mb="0">Enable SMS</FormLabel>
+                      <Switch
+                        isChecked={systemSettings.enableSMS}
+                        onChange={(e) => setSystemSettings({
+                          ...systemSettings,
+                          enableSMS: e.target.checked
+                        })}
+                      />
+                    </FormControl>
+                  </SimpleGrid>
+
+                  <FormControl>
+                    <FormLabel>Max Patient Records</FormLabel>
+                    <Input
+                      type="number"
+                      value={systemSettings.maxPatientRecords}
+                      onChange={(e) => setSystemSettings({
+                        ...systemSettings,
+                        maxPatientRecords: parseInt(e.target.value)
+                      })}
+                    />
+                  </FormControl>
+
+                  <Button
+                    leftIcon={<FiSave />}
+                    colorScheme="brand"
+                    onClick={handleSaveSystem}
+                    alignSelf="flex-start"
+                  >
+                    Save System Settings
+                  </Button>
+                </VStack>
+              </CardBody>
+            </Card>
+          </TabPanel>
+
+          {/* Data Management */}
+          <TabPanel>
+            <Card>
+              <CardHeader>
+                <HStack>
+                  <Icon as={FiDatabase} />
+                  <Heading size="md">Data Management</Heading>
+                </HStack>
+              </CardHeader>
+              <CardBody>
+                <VStack spacing={6} align="stretch">
+                  <Text color="gray.600">
+                    Manage your healthcare data with backup and restore options.
+                  </Text>
+
+                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                    <Card variant="outline">
+                      <CardBody>
+                        <VStack spacing={3}>
+                          <Icon as={FiDownload} boxSize={8} color="green.500" />
+                          <Heading size="sm">Export Data</Heading>
+                          <Text fontSize="sm" textAlign="center" color="gray.600">
+                            Download all your patient records, treatments, and invoices.
+                          </Text>
+                          <Button
+                            leftIcon={<FiDownload />}
+                            colorScheme="green"
+                            onClick={handleExportData}
+                            size="sm"
+                          >
+                            Export All Data
+                          </Button>
+                        </VStack>
+                      </CardBody>
+                    </Card>
+
+                    <Card variant="outline">
+                      <CardBody>
+                        <VStack spacing={3}>
+                          <Icon as={FiUpload} boxSize={8} color="blue.500" />
+                          <Heading size="sm">Import Data</Heading>
+                          <Text fontSize="sm" textAlign="center" color="gray.600">
+                            Upload and restore data from a backup file.
+                          </Text>
+                          <Button
+                            leftIcon={<FiUpload />}
+                            colorScheme="blue"
+                            onClick={handleImportData}
+                            size="sm"
+                          >
+                            Import Data
+                          </Button>
+                        </VStack>
+                      </CardBody>
+                    </Card>
+                  </SimpleGrid>
+
+                  <Box p={4} bg="yellow.50" borderRadius="md" borderLeft="4px" borderColor="yellow.400">
+                    <Text fontSize="sm" color="yellow.800">
+                      <strong>Note:</strong> Always backup your data before making major changes. 
+                      Data imports will overwrite existing records.
                     </Text>
-                    <Button 
-                      leftIcon={<FiDownload />} 
-                      colorScheme="brand"
-                      onClick={handleExportData}
-                    >
-                      Export All Data
-                    </Button>
-                  </Box>
-                  
-                  <Divider />
-                  
-                  <Box>
-                    <Heading size="sm" mb="3">Import Data</Heading>
-                    <Text mb="4">
-                      Import data from a backup file. This will override existing data.
-                    </Text>
-                    <HStack>
-                      <Button leftIcon={<FiUpload />} onClick={handleImportData}>
-                        Import Data
-                      </Button>
-                      <Input type="file" display="none" id="import-file" />
-                    </HStack>
-                    <Text fontSize="sm" color="red.500" mt="2">
-                      Warning: Importing data will replace all current records.
-                    </Text>
-                  </Box>
-                  
-                  <Divider />
-                  
-                  <Box>
-                    <Heading size="sm" mb="3">Clear Data</Heading>
-                    <Text mb="4">
-                      Clear all data from the system. This action cannot be undone.
-                    </Text>
-                    <Button colorScheme="red" variant="outline">
-                      Clear All Data
-                    </Button>
                   </Box>
                 </VStack>
               </CardBody>
             </Card>
           </TabPanel>
+
+          {/* User Management - Admin Only */}
+          {hasRole('admin') && (            <TabPanel>
+              <UserManagement />
+            </TabPanel>
+          )}
         </TabPanels>
       </Tabs>
     </Box>
