@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Alert, AlertIcon, AlertTitle, AlertDescription } from '@chakra-ui/react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 
 const ProtectedRoute = ({ children, roles = [] }) => {
   const { isAuthenticated, user, hasRole } = useAuth();

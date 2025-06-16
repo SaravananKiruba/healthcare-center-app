@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
-import {
-  Box,
-  Button,
+import {  Box,
   Card,
   CardBody,
   CardHeader,
@@ -24,19 +22,15 @@ import {
   Tab,
   TabPanels,
   TabPanel,
-  Select,
-  HStack,
-  VStack,
+  Select,  HStack,
   IconButton,
   Icon,
 } from '@chakra-ui/react';
 import { Link as RouterLink } from 'react-router-dom';
-import {
-  FiSearch,
+import {  FiSearch,
   FiUser,
   FiFileText,
   FiDollarSign,
-  FiCalendar,
   FiEye,
 } from 'react-icons/fi';
 import { useAppContext } from '../../context/AppContext';

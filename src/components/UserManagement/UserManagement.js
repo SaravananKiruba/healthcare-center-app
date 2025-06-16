@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Button,
@@ -32,7 +32,7 @@ import {
   CardHeader,
   CardBody,
 } from '@chakra-ui/react';
-import { FiPlus, FiEdit, FiTrash2, FiUsers } from 'react-icons/fi';
+import { FiPlus, FiEdit, FiUsers } from 'react-icons/fi';
 import { authAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
@@ -51,13 +51,7 @@ const UserManagement = () => {
     role: 'clerk',
   });
 
-  useEffect(() => {
-    if (hasRole('admin')) {
-      fetchUsers();
-    }
-  }, [hasRole]);
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
       const response = await authAPI.getUsers();
@@ -73,7 +67,13 @@ const UserManagement = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    if (hasRole('admin')) {
+      fetchUsers();
+    }
+  }, [hasRole, fetchUsers]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

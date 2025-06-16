@@ -2,11 +2,8 @@ import React, { useState } from 'react';
 import {
   Box,
   Button,
-  Card,
-  CardBody,
+  Card,  CardBody,
   CardHeader,
-  Divider,
-  Flex,
   Heading,
   Input,
   FormControl,
@@ -26,9 +23,7 @@ import {
   useColorMode,
   Icon,
 } from '@chakra-ui/react';
-import {
-  FiSave,
-  FiUser,
+import {  FiSave,
   FiSettings,
   FiDatabase,
   FiDownload,
@@ -37,10 +32,9 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import UserManagement from '../../components/UserManagement/UserManagement';
 
-const Settings = () => {
-  const toast = useToast();
+const Settings = () => {  const toast = useToast();
   const { colorMode, toggleColorMode } = useColorMode();
-  const { user, hasRole } = useAuth();
+  const { hasRole } = useAuth();
   
   const [generalSettings, setGeneralSettings] = useState({
     clinicName: 'HealthCare Center',

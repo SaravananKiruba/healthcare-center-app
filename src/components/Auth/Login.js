@@ -17,12 +17,10 @@ import {
   InputRightElement,
   IconButton,
   Text,
-  Flex,
-  Image,
   useColorModeValue,
 } from '@chakra-ui/react';
 import { ViewIcon, ViewOffIcon } from '@chakra-ui/icons';
-import { FiLock, FiUser } from 'react-icons/fi';
+import { FiLock } from 'react-icons/fi';
 import { authAPI } from '../../services/api';
 
 const Login = ({ onLogin }) => {

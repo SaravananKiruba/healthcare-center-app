@@ -1,5 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { authAPI } from '../services/api';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
 const AuthContext = createContext();
 
@@ -15,12 +14,15 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  useEffect(() => {
-    checkAuthStatus();
+  
+  const logout = useCallback(() => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setUser(null);
+    setIsAuthenticated(false);
   }, []);
 
-  const checkAuthStatus = async () => {
+  const checkAuthStatus = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
       const savedUser = localStorage.getItem('user');
@@ -36,20 +38,17 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [logout]);
+
+  useEffect(() => {
+    checkAuthStatus();
+  }, [checkAuthStatus]);
 
   const login = (userData) => {
     setUser(userData);
     setIsAuthenticated(true);
   };
-
-  const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setUser(null);
-    setIsAuthenticated(false);
-  };
-
+  
   const hasRole = (roles) => {
     if (!user) return false;
     if (Array.isArray(roles)) {

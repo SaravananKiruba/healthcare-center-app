@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Box,
   Flex,
@@ -10,25 +10,18 @@ import {
   Heading,
   useDisclosure,
   CloseButton,
-  Drawer,
-  DrawerContent,
-  DrawerOverlay,
   useColorModeValue,
   Menu,
   MenuButton,
   MenuList,
   MenuItem,
   Badge,
-  Image,
-  Tooltip,
-  Button,
 } from '@chakra-ui/react';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 import {
   FiMenu,
   FiHome,
   FiUsers,
-  FiFileText,
   FiDollarSign,
   FiSearch,
   FiSettings,
@@ -37,7 +30,7 @@ import {
   FiUser,
   FiBarChart2,
   FiPlusCircle,
-} from 'react-icons/fi';
+}from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
 
 // Logo component
