@@ -1,7 +1,10 @@
 from typing import List, Optional
-from fastapi import FastAPI, HTTPException, Depends, status
+import traceback
+import json
+from fastapi import FastAPI, HTTPException, Depends, status, Request, Response
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from . import models, schemas, auth
 from .database import engine, get_db
@@ -12,14 +15,45 @@ models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Healthcare Center API", version="1.0.0")
 
-# Configure CORS
+# Configure CORS - Allow both development and production environments
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],  
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "*"],  
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Accept"],
 )
+
+# Global exception handler for better error reporting
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    error_detail = str(exc)
+    status_code = 500
+    
+    if isinstance(exc, HTTPException):
+        status_code = exc.status_code
+        error_detail = exc.detail
+    
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "detail": error_detail,
+            "path": request.url.path,
+            "method": request.method,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    )
+
+# Add a middleware to log request/response for debugging
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    try:
+        response = await call_next(request)
+        return response
+    except Exception as e:
+        print(f"Error processing request {request.url.path}: {str(e)}")
+        traceback.print_exc()
+        raise
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
@@ -95,14 +129,20 @@ def create_patient(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(auth.require_role(["admin", "doctor", "clerk"]))
 ):
-    db_patient = models.Patient(
-        id=f"p{uuid4().hex[:8]}",
-        **patient.dict()
-    )
-    db.add(db_patient)
-    db.commit()
-    db.refresh(db_patient)
-    return db_patient
+    try:
+        patient_data = patient.dict()
+        db_patient = models.Patient(
+            id=f"p{uuid4().hex[:8]}",
+            **patient_data
+        )
+        db.add(db_patient)
+        db.commit()
+        db.refresh(db_patient)
+        return db_patient
+    except Exception as e:
+        db.rollback()
+        print(f"Error creating patient: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create patient: {str(e)}")
 
 @app.get("/patients/", response_model=List[schemas.Patient])
 def read_patients(
@@ -132,16 +172,24 @@ def update_patient(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(auth.require_role(["admin", "doctor", "clerk"]))
 ):
-    db_patient = db.query(models.Patient).filter(models.Patient.id == patient_id).first()
-    if db_patient is None:
-        raise HTTPException(status_code=404, detail="Patient not found")
-    
-    for field, value in patient.dict().items():
-        setattr(db_patient, field, value)
-    
-    db.commit()
-    db.refresh(db_patient)
-    return db_patient
+    try:
+        db_patient = db.query(models.Patient).filter(models.Patient.id == patient_id).first()
+        if db_patient is None:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        
+        update_data = patient.dict()
+        for field, value in update_data.items():
+            setattr(db_patient, field, value)
+        
+        db.commit()
+        db.refresh(db_patient)
+        return db_patient
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        db.rollback()
+        print(f"Error updating patient {patient_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update patient: {str(e)}")
 
 @app.delete("/patients/{patient_id}")
 def delete_patient(
@@ -315,39 +363,10 @@ def search_patients(
     ).all()
     return patients
 
-# Update patient endpoint
-@app.put("/patients/{patient_id}", response_model=schemas.Patient)
-def update_patient(
-    patient_id: str, 
-    patient: schemas.PatientCreate, 
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(auth.require_role(["admin", "doctor", "clerk"]))
-):
-    db_patient = db.query(models.Patient).filter(models.Patient.id == patient_id).first()
-    if db_patient is None:
-        raise HTTPException(status_code=404, detail="Patient not found")
-    
-    for field, value in patient.dict().items():
-        setattr(db_patient, field, value)
-    
-    db.commit()
-    db.refresh(db_patient)
-    return db_patient
-
-# Delete patient endpoint
-@app.delete("/patients/{patient_id}")
-def delete_patient(
-    patient_id: str, 
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(auth.require_role(["admin"]))
-):
-    db_patient = db.query(models.Patient).filter(models.Patient.id == patient_id).first()
-    if db_patient is None:
-        raise HTTPException(status_code=404, detail="Patient not found")
-    
-    db.delete(db_patient)
-    db.commit()
-    return {"message": "Patient deleted successfully"}
+# Health check endpoint
+@app.get("/health")
+def health_check():
+    return {"status": "healthy", "message": "Healthcare Center API is running"}
 
 # Health check endpoint
 @app.get("/health")

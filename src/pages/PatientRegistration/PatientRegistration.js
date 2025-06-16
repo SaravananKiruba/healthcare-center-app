@@ -28,6 +28,8 @@ import {
   ModalBody,
   ModalCloseButton,
   Icon,
+  Alert,
+  AlertIcon,
 } from '@chakra-ui/react';
 import { FiSave, FiCheckCircle } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
@@ -37,8 +39,7 @@ import { useAppContext } from '../../context/AppContext';
 
 const PatientRegistration = () => {
   const toast = useToast();
-  const navigate = useNavigate();
-  const { addPatient } = useAppContext();
+  const navigate = useNavigate();  const { addPatient, isLoading, error } = useAppContext();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [registeredPatientId, setRegisteredPatientId] = useState(null);
 
@@ -71,70 +72,84 @@ const PatientRegistration = () => {
       mobileNumber: '',
       chiefComplaints: '',
     },
-    validationSchema,
-    onSubmit: (values) => {
-      // Create a new patient with the form values and add default values for other fields
-      const newPatientData = {
-        ...values,
-        medicalHistory: {
-          pastHistory: {
-            allergy: false,
-            anemia: false,
-            arthritis: false,
-            asthma: false,
-            cancer: false,
-            diabetes: false,
-            heartDisease: false,
-            hypertension: false,
-            thyroid: false,
-            tuberculosis: false,
+    validationSchema,    onSubmit: async (values) => {
+      try {
+        // Now we can send the data as is since our API interceptor will handle the conversion
+        const newPatientData = {
+          name: values.name,
+          guardianName: values.guardianName,
+          address: values.address,
+          age: parseInt(values.age),
+          sex: values.sex,
+          occupation: values.occupation || '',
+          mobileNumber: values.mobileNumber,
+          chiefComplaints: values.chiefComplaints,
+          medicalHistory: {
+            pastHistory: {
+              allergy: false,
+              anemia: false,
+              arthritis: false,
+              asthma: false,
+              cancer: false,
+              diabetes: false,
+              heartDisease: false,
+              hypertension: false,
+              thyroid: false,
+              tuberculosis: false,
+            },
+            familyHistory: {
+              diabetes: false,
+              hypertension: false,
+              thyroid: false,
+              tuberculosis: false,
+              cancer: false,
+            },
           },
-          familyHistory: {
-            diabetes: false,
-            hypertension: false,
-            thyroid: false,
-            tuberculosis: false,
-            cancer: false,
+          physicalGenerals: {
+            appetite: '',
+            bowel: '',
+            urine: '',
+            sweating: '',
+            sleep: '',
+            thirst: '',
+            addictions: '',
           },
-        },
-        physicalGenerals: {
-          appetite: '',
-          bowel: '',
-          urine: '',
-          sweating: '',
-          sleep: '',
-          thirst: '',
-          addictions: '',
-        },
-        menstrualHistory: values.sex === 'Female' ? {
-          menses: '',
-          menopause: 'No',
-          leucorrhoea: '',
-          gonorrhea: 'No',
-          otherDischarges: '',
-        } : null,
-        foodAndHabit: {
-          foodHabit: '',
-          addictions: '',
-        },
-        investigations: [],
-        treatments: [],
-        invoices: [],
-      };
+          menstrualHistory: values.sex === 'Female' ? {
+            menses: '',
+            menopause: 'No',
+            leucorrhoea: '',
+            gonorrhea: 'No',
+            otherDischarges: '',
+          } : null,
+          foodAndHabit: {
+            foodHabit: '',
+            addictions: '',
+          }
+        };
 
-      // Add the patient to the context
-      const patientId = addPatient(newPatientData);
-      setRegisteredPatientId(patientId);
-      
-      // Show success message
-      toast({
-        title: 'Patient registered successfully',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
-      
-      onOpen(); // Open the success modal
+        // Add the patient to the context
+        const result = await addPatient(newPatientData);
+        setRegisteredPatientId(result.id);
+        
+        // Show success message
+        toast({
+          title: 'Patient registered successfully',
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+        });
+        
+        onOpen(); // Open the success modal
+      } catch (error) {
+        console.error("Error registering patient:", error);
+        toast({
+          title: 'Registration failed',
+          description: error.response?.data?.detail || 'Could not register patient',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
+      }
     },
   });
 
@@ -257,14 +272,19 @@ const PatientRegistration = () => {
                     <FormErrorMessage>{formik.errors.chiefComplaints}</FormErrorMessage>
                   </FormControl>
                 </GridItem>
-              </Grid>
-
+              </Grid>              {error && (
+                <Alert status="error" mt={4} mb={2}>
+                  <AlertIcon />
+                  {error}
+                </Alert>
+              )}
+              
               <HStack justify="flex-end" pt="4">
                 <Button 
                   type="submit" 
                   colorScheme="brand" 
                   leftIcon={<FiSave />} 
-                  isLoading={formik.isSubmitting}
+                  isLoading={formik.isSubmitting || isLoading}
                 >
                   Register Patient
                 </Button>

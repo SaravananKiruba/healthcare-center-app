@@ -61,19 +61,25 @@ export const AppProvider = ({ children }) => {
     
     fetchPatients();
   }, []);
-    // Add a new patient
+  // Add a new patient
   const addPatient = async (patientData) => {
     setIsLoading(true);
     try {
+      // Make sure we're sending the right format to the API
       const response = await patientsAPI.createPatient(patientData);
       
       // Add the new patient to the state
-      setPatients([...patients, response.data]);
+      const newPatient = response.data;
+      setPatients(prevPatients => [...prevPatients, newPatient]);
       setError(null);
-      return response.data;
+      return newPatient;
     } catch (err) {
       console.error("Failed to add patient:", err);
-      setError(typeof err === 'object' ? (err.message || "Failed to add patient") : err); // Ensure error is a string
+      // Extract the error message from the response if available
+      const errorMessage = err.response?.data?.detail || 
+                          err.message || 
+                          "Failed to add patient";
+      setError(errorMessage);
       throw err;
     } finally {
       setIsLoading(false);

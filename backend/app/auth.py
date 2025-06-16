@@ -7,6 +7,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from .database import get_db
 from . import models, schemas
+from pydantic import ValidationError
 
 # JWT configuration
 SECRET_KEY = "your-secret-key-keep-it-secret-healthcare-app-2025"  # In production, use environment variable
@@ -42,7 +43,15 @@ def verify_token(token: str, credentials_exception):
         if email is None:
             raise credentials_exception
         token_data = schemas.TokenData(email=email)
-    except jwt.PyJWTError:
+    except jwt.ExpiredSignatureError:
+        # Specific error for expired tokens
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has expired",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except jwt.PyJWTError as e:
+        print(f"Token verification error: {str(e)}")
         raise credentials_exception
     return token_data
 

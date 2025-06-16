@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {  Box,
   Card,
   CardBody,
@@ -25,6 +25,8 @@ import {  Box,
   Select,  HStack,
   IconButton,
   Icon,
+  Spinner,
+  Center,
 } from '@chakra-ui/react';
 import { Link as RouterLink } from 'react-router-dom';
 import {  FiSearch,
@@ -34,6 +36,7 @@ import {  FiSearch,
   FiEye,
 } from 'react-icons/fi';
 import { useAppContext } from '../../context/AppContext';
+import { patientsAPI } from '../../services/api';
 
 const Search = () => {
   const { patients, doctors } = useAppContext();
@@ -52,14 +55,39 @@ const Search = () => {
     }).format(date);
   };
   
-  // Filter patients
-  const filteredPatients = searchTerm.trim() === ''
-    ? patients
-    : patients.filter(patient => 
-        patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        patient.mobileNumber?.includes(searchTerm) ||
-        patient.id.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+  // State for API search results
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  
+  // Handle search
+  useEffect(() => {
+    const searchPatients = async () => {
+      if (searchTerm.trim().length < 2) {
+        setSearchResults([]);
+        return;
+      }
+      
+      setIsSearching(true);
+      try {
+        const response = await patientsAPI.searchPatients(searchTerm);
+        setSearchResults(response.data);
+      } catch (error) {
+        console.error("Error searching patients:", error);
+      } finally {
+        setIsSearching(false);
+      }
+    };
+    
+    // Debounce search requests
+    const timer = setTimeout(() => {
+      searchPatients();
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+  
+  // Use search results or all patients if search term is empty
+  const filteredPatients = searchTerm.trim() === '' ? patients : searchResults;
   
   // Get all treatments from all patients
   const allTreatments = patients.reduce((acc, patient) => {
@@ -167,8 +195,16 @@ const Search = () => {
                         <Th width="80px">View</Th>
                       </Tr>
                     </Thead>
-                    <Tbody>
-                      {filteredPatients.length > 0 ? (
+                    <Tbody>                      {isSearching ? (
+                        <Tr>
+                          <Td colSpan="6" textAlign="center" py="4">
+                            <Center>
+                              <Spinner size="md" color="brand.500" mr={3} />
+                              <Text>Searching patients...</Text>
+                            </Center>
+                          </Td>
+                        </Tr>
+                      ) : filteredPatients.length > 0 ? (
                         filteredPatients.map((patient) => (
                           <Tr key={patient.id} _hover={{ bg: 'gray.50' }}>
                             <Td fontFamily="mono">{patient.id}</Td>
@@ -178,11 +214,11 @@ const Search = () => {
                               </Text>
                             </Td>
                             <Td display={{ base: 'none', md: 'table-cell' }}>
-                              {patient.age}/{patient.sex.charAt(0)}
+                              {patient.age}/{patient.sex?.charAt(0)}
                             </Td>
-                            <Td display={{ base: 'none', lg: 'table-cell' }}>{patient.mobileNumber}</Td>
+                            <Td display={{ base: 'none', lg: 'table-cell' }}>{patient.mobile_number || patient.mobileNumber}</Td>
                             <Td display={{ base: 'none', xl: 'table-cell' }}>
-                              {formatDate(patient.createdAt)}
+                              {formatDate(patient.created_at || patient.createdAt)}
                             </Td>
                             <Td>
                               <IconButton

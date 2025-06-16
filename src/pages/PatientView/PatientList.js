@@ -52,24 +52,79 @@ const PatientList = () => {
   const [patientToDelete, setPatientToDelete] = useState(null);
   const { isOpen, onOpen, onClose } = useDisclosure();
   const cancelRef = React.useRef();
-
   // Filter patients based on search query
   const filteredPatients = searchQuery.trim() === ''
     ? patients
     : patients.filter(patient => 
-        patient.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        patient.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         patient.mobileNumber?.includes(searchQuery) ||
-        patient.id.includes(searchQuery)
+        patient.id?.includes(searchQuery)
       );
-
   // Format date string
   const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    }).format(date);
+    if (!dateString) {
+      return 'N/A';
+    }
+    
+    try {
+      // If it's already a proper Date object
+      if (dateString instanceof Date) {
+        if (!isNaN(dateString.getTime())) {
+          return new Intl.DateTimeFormat('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+          }).format(dateString);
+        }
+        return 'N/A';
+      }
+
+      // If it's a string that looks like an ISO date
+      if (typeof dateString === 'string') {
+        // Try to create a valid date
+        const date = new Date(dateString);
+        
+        // Check if date is valid
+        if (!isNaN(date.getTime())) {
+          return new Intl.DateTimeFormat('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+          }).format(date);
+        }
+        
+        // If it's not a valid ISO date, maybe it's a timestamp in string format
+        if (!isNaN(Number(dateString))) {
+          const timestamp = Number(dateString);
+          const timestampDate = new Date(timestamp);
+          if (!isNaN(timestampDate.getTime())) {
+            return new Intl.DateTimeFormat('en-US', {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric',
+            }).format(timestampDate);
+          }
+        }
+      }
+      
+      // If it's a number (timestamp)
+      if (typeof dateString === 'number') {
+        const date = new Date(dateString);
+        if (!isNaN(date.getTime())) {
+          return new Intl.DateTimeFormat('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+          }).format(date);
+        }
+      }
+      
+      console.warn('Invalid date format:', dateString);
+      return 'N/A';
+    } catch (error) {
+      console.error('Error formatting date:', error, 'Value:', dateString);
+      return 'N/A';
+    }
   };
 
   // Handle patient deletion
@@ -152,17 +207,14 @@ const PatientList = () => {
                   filteredPatients.map((patient) => (
                     <Tr key={patient.id} _hover={{ bg: 'gray.50' }}>
                       <Td fontFamily="mono">{patient.id}</Td>
-                      <Td fontWeight="medium">
-                        <Text as={RouterLink} to={`/patient/${patient.id}`} color="brand.600">
-                          {patient.name}
+                      <Td fontWeight="medium">                        <Text as={RouterLink} to={`/patient/${patient.id}`} color="brand.600">
+                          {patient.name || 'Unnamed Patient'}
                         </Text>
+                      </Td>                      <Td display={{ base: 'none', md: 'table-cell' }}>
+                        {patient.age || '?'}/{patient.sex?.charAt(0) || '?'}
                       </Td>
-                      <Td display={{ base: 'none', md: 'table-cell' }}>
-                        {patient.age}/{patient.sex.charAt(0)}
-                      </Td>
-                      <Td display={{ base: 'none', lg: 'table-cell' }}>{patient.mobileNumber}</Td>
-                      <Td display={{ base: 'none', xl: 'table-cell' }}>
-                        {formatDate(patient.createdAt)}
+                      <Td display={{ base: 'none', lg: 'table-cell' }}>{patient.mobileNumber || 'N/A'}</Td>                      <Td display={{ base: 'none', xl: 'table-cell' }}>
+                        {formatDate(patient.createdAt || patient.created_at || '')}
                       </Td>
                       <Td isNumeric>
                         <Menu>

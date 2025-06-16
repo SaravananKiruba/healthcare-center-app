@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { snakeToCamelCase, camelToSnakeCase } from '../utils/dataTransform';
 
 const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
@@ -9,24 +10,48 @@ const api = axios.create({
     },
 });
 
-// Add token to requests if available
+// NOTE: Token handling moved to the combined interceptor below
+
+// Request interceptor to convert camelCase to snake_case for backend
 api.interceptors.request.use((config) => {
+    // Add token to requests if available
     const token = localStorage.getItem('token');
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;
     }
+    
+    // Transform request data from camelCase to snake_case
+    if (config.data && typeof config.data === 'object' && config.method !== 'get') {
+        config.data = camelToSnakeCase(config.data);
+    }
+    
     return config;
 });
 
-// Add response interceptor to handle authentication errors
+// Response interceptor to convert snake_case to camelCase for frontend
 api.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        // Transform response data from snake_case to camelCase
+        if (response.data) {
+            response.data = snakeToCamelCase(response.data);
+        }
+        return response;
+    },
     (error) => {
+        console.error("API Error:", error.response?.data || error.message);
+        
+        // Handle authentication errors
         if (error.response?.status === 401) {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             window.location.href = '/';
         }
+        
+        // Enhanced error message
+        if (error.response?.data?.detail) {
+            error.message = error.response.data.detail;
+        }
+        
         return Promise.reject(error);
     }
 );
