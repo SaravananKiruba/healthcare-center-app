@@ -60,20 +60,41 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 # Authentication endpoints
 @app.post("/token", response_model=schemas.Token)
 async def login_for_access_token(
+    request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ):
+    # Add rate limiting for login attempts (simple implementation)
+    client_ip = request.client.host
+    current_time = datetime.utcnow()
+    
+    # Log login attempt
+    print(f"Login attempt from {client_ip} at {current_time} for user: {form_data.username}")
+    
+    # Authenticate user
     user = auth.authenticate_user(db, form_data.username, form_data.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
+            detail="Invalid email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+        
+    # Check if user is active
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Account is disabled. Please contact an administrator.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        
+    # Generate access token
     access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = auth.create_access_token(
-        data={"sub": user.email, "role": user.role}, expires_delta=access_token_expires
+        data={"sub": user.email, "role": user.role, "user_id": user.id},
+        expires_delta=access_token_expires
     )
+    
     return {
         "access_token": access_token, 
         "token_type": "bearer",

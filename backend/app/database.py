@@ -1,10 +1,14 @@
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
 import sqlite3
 import time
 import traceback
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Use environment variable or default to local database
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./healthcare.db")
@@ -49,7 +53,7 @@ def get_db():
         db = SessionLocal()
         try:
             # Test the connection before returning it
-            db.execute("SELECT 1")
+            db.execute(text("SELECT 1"))
             yield db
             break  # Connection successful, exit the retry loop
         except Exception as e:

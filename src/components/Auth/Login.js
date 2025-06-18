@@ -40,11 +40,17 @@ const Login = ({ onLogin }) => {
     });
     if (error) setError('');
   };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
+
+    // Basic form validation
+    if (!formData.email.trim() || !formData.password.trim()) {
+      setError('Email and password are required');
+      setIsLoading(false);
+      return;
+    }
 
     try {
       const response = await authAPI.login(formData.email, formData.password);
@@ -62,10 +68,34 @@ const Login = ({ onLogin }) => {
         isClosable: true,
       });
 
+      // Clear form data after successful login
+      setFormData({ email: '', password: '' });
+      
       onLogin(user);
-    } catch (err) {      const errorMessage = err.response?.data?.detail || 'Login failed. Please check your credentials.';
+    } catch (err) {
+      console.error('Login error:', err);
+      
+      // Extract meaningful error message
+      let errorMessage;
+      if (err.response) {
+        errorMessage = err.response.data?.detail || `Error ${err.response.status}: Login failed`;
+      } else if (err.request) {
+        errorMessage = 'No response from server. Please check your internet connection.';
+      } else {
+        errorMessage = err.message || 'An unexpected error occurred';
+      }
+      
       // Ensure the error is a string, not an object
       setError(typeof errorMessage === 'object' ? JSON.stringify(errorMessage) : errorMessage);
+      
+      // Show toast for error
+      toast({
+        title: 'Login Failed',
+        description: errorMessage,
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
     } finally {
       setIsLoading(false);
     }

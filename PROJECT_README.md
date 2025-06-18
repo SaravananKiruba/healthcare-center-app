@@ -24,8 +24,9 @@ A complete healthcare center management system with React frontend and FastAPI b
 - FastAPI (Python)
 - SQLAlchemy ORM
 - SQLite database
-- JWT authentication
+- JWT authentication with improved security
 - Pydantic for data validation
+- Bcrypt for secure password hashing
 
 ### Deployment
 - Docker & Docker Compose
@@ -52,6 +53,13 @@ docker-compose up --build
 
 ## Development Setup
 
+### Application Scripts
+
+- `start-app-new.bat`: Starts both frontend and backend servers
+- `stop-app.bat`: Stops all running application instances
+- `install-deps.bat`: Installs both frontend and backend dependencies
+- `setup-local.bat`: Sets up the local development environment
+
 ### Backend Development
 
 1. **Navigate to backend directory**
@@ -59,19 +67,28 @@ docker-compose up --build
 cd backend
 ```
 
-2. **Install Python dependencies**
+2. **Create a .env file**
+```
+# Security settings
+JWT_SECRET_KEY=your-secure-random-key
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+
+# Database settings
+DATABASE_URL=sqlite:///./healthcare.db
+```
+
+3. **Install Python dependencies**
 ```bash
 pip install -r requirements.txt
 ```
 
-3. **Start the backend server**
+4. **Start the backend server**
 ```bash
 # On Windows
-start.bat
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 # On Linux/Mac
-chmod +x start.sh
-./start.sh
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ### Frontend Development

@@ -5,24 +5,39 @@ import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
+import os
+import secrets
+from passlib.context import CryptContext
 from .database import get_db
 from . import models, schemas
 from pydantic import ValidationError
 
 # JWT configuration
-SECRET_KEY = "your-secret-key-keep-it-secret-healthcare-app-2025"  # In production, use environment variable
+SECRET_KEY = os.environ.get("JWT_SECRET_KEY", secrets.token_hex(32))  # Generate secure random key if not provided
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+# Password hashing context - using bcrypt for secure password storage
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 def verify_password(plain_password, hashed_password):
     """Verify a password against its hash"""
-    return get_password_hash(plain_password) == hashed_password
+    # First check if it's an old SHA256 hash
+    old_hash = get_password_hash_sha256(plain_password)
+    if old_hash == hashed_password:
+        return True
+    # Otherwise use the secure bcrypt verification
+    return pwd_context.verify(plain_password, hashed_password)
+
+def get_password_hash_sha256(password):
+    """Hash a password using SHA256 - LEGACY, DO NOT USE FOR NEW PASSWORDS"""
+    return hashlib.sha256(password.encode()).hexdigest()
 
 def get_password_hash(password):
-    """Hash a password using SHA256"""
-    return hashlib.sha256(password.encode()).hexdigest()
+    """Hash a password using secure hashing"""
+    return pwd_context.hash(password)
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     """Create JWT access token"""
@@ -47,22 +62,50 @@ def verify_token(token: str, credentials_exception):
         # Specific error for expired tokens
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token has expired",
+            detail="Your session has expired. Please log in again.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except jwt.InvalidTokenError:
+        # Invalid token structure
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication token",
             headers={"WWW-Authenticate": "Bearer"},
         )
     except jwt.PyJWTError as e:
+        # Log the error but don't expose details to client
         print(f"Token verification error: {str(e)}")
         raise credentials_exception
     return token_data
 
 def authenticate_user(db: Session, email: str, password: str):
     """Authenticate user credentials"""
-    user = db.query(models.User).filter(models.User.email == email).first()
-    if not user:
+    try:
+        # Normalize email to lowercase
+        email = email.lower().strip()
+        
+        # Find user by email
+        user = db.query(models.User).filter(models.User.email == email).first()
+        if not user:
+            print(f"Login attempt with non-existent email: {email}")
+            return False
+            
+        # Verify password
+        if not verify_password(password, user.hashed_password):
+            print(f"Failed login attempt for user: {email}")
+            return False
+            
+        # Check if password was stored with old method and update if needed
+        if user.hashed_password == get_password_hash_sha256(password):
+            # Update to new secure hash
+            user.hashed_password = get_password_hash(password)
+            db.commit()
+            print(f"Updated password hash for user: {email}")
+            
+        return user
+    except Exception as e:
+        print(f"Authentication error: {str(e)}")
         return False
-    if not verify_password(password, user.hashed_password):
-        return False
-    return user
 
 async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """Get current user from token"""

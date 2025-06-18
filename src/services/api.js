@@ -38,13 +38,32 @@ api.interceptors.response.use(
         return response;
     },
     (error) => {
-        console.error("API Error:", error.response?.data || error.message);
+        // Log the error with useful debugging information
+        console.error("API Error:", {
+            url: error.config?.url,
+            method: error.config?.method,
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            data: error.response?.data,
+            message: error.message
+        });
         
         // Handle authentication errors
         if (error.response?.status === 401) {
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            window.location.href = '/';
+            // Check if this is a login attempt
+            const isLoginAttempt = error.config?.url?.includes('/token');
+            
+            if (!isLoginAttempt) {
+                // For other API calls, clear auth and redirect
+                console.log("Session expired or invalid. Redirecting to login.");
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                
+                // Use a small delay to allow the current operation to complete
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 100);
+            }
         }
         
         // Enhanced error message
