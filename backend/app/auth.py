@@ -18,14 +18,20 @@ SECRET_KEY = os.environ.get("JWT_SECRET_KEY", secrets.token_hex(32))  # Generate
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
-# Configure error handling for bcrypt issues with Python 3.13
+# Configure password hashing with bcrypt
 try:
     # Password hashing context - using bcrypt for secure password storage
     pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    # Test if bcrypt is working properly
+    test_hash = pwd_context.hash("test")
+    if not pwd_context.verify("test", test_hash):
+        raise Exception("Bcrypt verification test failed")
+    logging.info("Bcrypt initialized successfully")
 except Exception as e:
     logging.warning(f"Error initializing bcrypt, falling back to sha256: {str(e)}")
     # Fallback to SHA256 if bcrypt fails (less secure but functional)
     pwd_context = CryptContext(schemes=["sha256_crypt"], deprecated="auto")
+    logging.info("Using SHA256 as fallback password hashing method")
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
@@ -43,28 +49,34 @@ def get_password_hash_sha256(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
 def get_password_hash(password):
-    """Hash a password using secure hashing"""
+    """Hash a password using secure bcrypt hashing"""
     return pwd_context.hash(password)
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
-    """Create JWT access token"""
+    """Create JWT access token with user data and expiration"""
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
         expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
+    # Make sure role is included in the token payload if available
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
 def verify_token(token: str, credentials_exception):
-    """Verify JWT token"""
+    """Verify JWT token and extract payload data"""
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         email: str = payload.get("sub")
         if email is None:
             raise credentials_exception
+        # Create token data with additional fields from payload
         token_data = schemas.TokenData(email=email)
+        # Add role info if available
+        token_data.role = payload.get("role")
+        token_data.user_id = payload.get("user_id")
+        return token_data
     except jwt.ExpiredSignatureError:
         # Specific error for expired tokens
         raise HTTPException(
@@ -83,7 +95,9 @@ def verify_token(token: str, credentials_exception):
         # Log the error but don't expose details to client
         print(f"Token verification error: {str(e)}")
         raise credentials_exception
-    return token_data
+    except Exception as e:
+        print(f"Unexpected error during token verification: {str(e)}")
+        raise credentials_exception
 
 def authenticate_user(db: Session, email: str, password: str):
     """Authenticate user credentials"""
@@ -105,9 +119,14 @@ def authenticate_user(db: Session, email: str, password: str):
         # Check if password was stored with old method and update if needed
         if user.hashed_password == get_password_hash_sha256(password):
             # Update to new secure hash
-            user.hashed_password = get_password_hash(password)
-            db.commit()
-            print(f"Updated password hash for user: {email}")
+            try:
+                user.hashed_password = get_password_hash(password)
+                db.commit()
+                print(f"Updated password hash for user: {email}")
+            except Exception as e:
+                print(f"Error updating password hash: {str(e)}")
+                # Rollback changes if update fails
+                db.rollback()
             
         return user
     except Exception as e:

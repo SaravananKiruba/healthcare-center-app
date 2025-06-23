@@ -35,6 +35,20 @@ def init_db():
                 db.add(admin_user)
                 print("Admin user created!")
             
+            # Create demo admin user with specified credentials
+            demo_admin = db.query(models.User).filter(models.User.email == "admin@example.com").first()
+            if not demo_admin:
+                demo_admin = models.User(
+                    id=f"u{uuid4().hex[:8]}",
+                    email="admin@example.com",
+                    hashed_password=get_password_hash("admin123"),
+                    full_name="Demo Admin",
+                    role="admin",
+                    is_active=True
+                )
+                db.add(demo_admin)
+                print("Demo admin user created!")
+            
             # Create sample doctor
             doctor_user = db.query(models.User).filter(models.User.email == "doctor@healthcare.com").first()
             if not doctor_user:

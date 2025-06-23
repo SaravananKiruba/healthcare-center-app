@@ -93,8 +93,7 @@ async def login_for_access_token(
         data={"sub": user.email, "role": user.role, "user_id": user.id},
         expires_delta=access_token_expires
     )
-    
-    # Return token with user information
+      # Return token with user information
     return {
         "access_token": access_token, 
         "token_type": "bearer",
@@ -104,12 +103,6 @@ async def login_for_access_token(
             "full_name": user.full_name,
             "role": user.role,
             "is_active": user.is_active
-        },
-        "user": {
-            "id": user.id,
-            "email": user.email,
-            "full_name": user.full_name,
-            "role": user.role
         }
     }
 
@@ -443,3 +436,62 @@ async def startup_event():
             print("Default admin user created: admin@healthcare.com / admin123")
     finally:
         db.close()
+
+# Example protected routes with role-based access control
+@app.get("/protected/admin-only")
+def admin_only_route(current_user: models.User = Depends(auth.require_role(["admin"]))):
+    """This route is only accessible by admins"""
+    return {
+        "message": "Welcome, admin!",
+        "user_id": current_user.id,
+        "email": current_user.email,
+        "role": current_user.role
+    }
+
+@app.get("/protected/doctor-only")
+def doctor_only_route(current_user: models.User = Depends(auth.require_role(["doctor"]))):
+    """This route is only accessible by doctors"""
+    return {
+        "message": "Welcome, doctor!",
+        "user_id": current_user.id,
+        "email": current_user.email,
+        "role": current_user.role
+    }
+
+@app.get("/protected/staff-access")
+def staff_access_route(current_user: models.User = Depends(auth.require_role(["admin", "doctor", "clerk"]))):
+    """This route is accessible by all staff members (admin, doctor, clerk)"""
+    return {
+        "message": f"Welcome, {current_user.role}!",
+        "user_id": current_user.id,
+        "email": current_user.email,
+        "role": current_user.role
+    }
+
+# User group management (only accessible by admins)
+@app.put("/users/{user_id}/role", response_model=schemas.User)
+def update_user_role(
+    user_id: str,
+    role_update: dict,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.require_role(["admin"]))
+):
+    """Update a user's role (admin only)"""
+    if "role" not in role_update:
+        raise HTTPException(status_code=400, detail="Role field is required")
+        
+    # Validate role
+    valid_roles = ["admin", "doctor", "clerk"]
+    if role_update["role"] not in valid_roles:
+        raise HTTPException(status_code=400, detail=f"Invalid role. Must be one of: {', '.join(valid_roles)}")
+    
+    # Find user
+    db_user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Update role
+    db_user.role = role_update["role"]
+    db.commit()
+    db.refresh(db_user)
+    return db_user
