@@ -83,16 +83,28 @@ echo.
 
 echo Installing backend dependencies...
 cd backend
-pip install --upgrade pip
-pip install -r requirements.txt
+python -m pip install --upgrade pip
+:: Install core dependencies first to ensure compatibility with Python 3.13
+python -m pip install --no-cache-dir typing-extensions>=4.9.0 pydantic-core>=2.14.3 pydantic>=2.4.2
+python -m pip install --no-cache-dir -r requirements.txt
 if %ERRORLEVEL% neq 0 (
     echo.
     echo WARNING: Initial dependency installation encountered issues.
     echo Attempting alternative installation approach...
     
-    :: Try installing with more specific commands
-    pip install --no-cache-dir pydantic-core
-    pip install --no-cache-dir -r requirements.txt
+    :: Try installing dependencies one by one with specific versions known to work with Python 3.13
+    python -m pip install --no-cache-dir typing-extensions>=4.9.0
+    python -m pip install --no-cache-dir pydantic-core>=2.14.3
+    python -m pip install --no-cache-dir pydantic>=2.4.2
+    python -m pip install --no-cache-dir fastapi>=0.104.1
+    python -m pip install --no-cache-dir uvicorn[standard]>=0.24.0
+    python -m pip install --no-cache-dir sqlalchemy==1.4.50
+    python -m pip install --no-cache-dir python-multipart==0.0.6
+    python -m pip install --no-cache-dir email-validator>=2.1.0
+    python -m pip install --no-cache-dir pyjwt==2.8.0
+    python -m pip install --no-cache-dir python-jose[cryptography]==3.3.0
+    python -m pip install --no-cache-dir passlib[bcrypt]==1.7.4
+    python -m pip install --no-cache-dir python-dotenv==1.0.0
     
     if %ERRORLEVEL% neq 0 (
         echo.
@@ -119,13 +131,32 @@ if exist "healthcare.db" (
 )
 
 echo Initializing database with sample data...
-python -c "from app.init_db import init_db; init_db()"
+
+:: Run the dedicated initialization script
+python initialize_db.py
 if %ERRORLEVEL% neq 0 (
+    echo.
     echo ERROR: Failed to initialize database.
     echo.
-    pause
-    cd ..
-    exit /b 1
+    echo This might be due to compatibility issues between Python 3.13 and the dependencies.
+    echo Trying with a more specific approach...
+    
+    :: Try again with a more direct approach
+    python -m pip install --no-cache-dir pydantic-core>=2.14.3 pydantic>=2.4.2
+    
+    :: Try again with the script
+    python initialize_db.py    if %ERRORLEVEL% neq 0 (
+        echo.
+        echo ERROR: Database initialization failed. Please try running the following commands manually:
+        echo cd backend
+        echo python -m pip install --upgrade pip
+        echo python -m pip install --no-cache-dir typing-extensions>=4.9.0 pydantic-core>=2.14.3 pydantic>=2.4.2 fastapi>=0.104.1
+        echo python initialize_db.py
+        echo.
+        pause
+        cd ..
+        exit /b 1
+    )
 )
 cd ..
 echo Database initialized successfully!

@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import List, Optional
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, ConfigDict
 
 class UserBase(BaseModel):
     email: EmailStr
@@ -14,8 +14,7 @@ class User(UserBase):
     id: str
     is_active: bool
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class Token(BaseModel):
     access_token: str
@@ -49,8 +48,7 @@ class Patient(PatientBase):
     treatments: List['Treatment'] = []
     invoices: List['Invoice'] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class InvestigationBase(BaseModel):
     type: str
@@ -65,8 +63,7 @@ class Investigation(InvestigationBase):
     id: str
     patient_id: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class TreatmentBase(BaseModel):
     date: datetime
@@ -81,8 +78,7 @@ class Treatment(TreatmentBase):
     id: str
     patient_id: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class InvoiceBase(BaseModel):
     date: datetime
@@ -104,5 +100,4 @@ class Invoice(InvoiceBase):
     id: str
     patient_id: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
