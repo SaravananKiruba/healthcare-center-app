@@ -11,14 +11,21 @@ from passlib.context import CryptContext
 from .database import get_db
 from . import models, schemas
 from pydantic import ValidationError
+import logging
 
 # JWT configuration
 SECRET_KEY = os.environ.get("JWT_SECRET_KEY", secrets.token_hex(32))  # Generate secure random key if not provided
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
-# Password hashing context - using bcrypt for secure password storage
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Configure error handling for bcrypt issues with Python 3.13
+try:
+    # Password hashing context - using bcrypt for secure password storage
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+except Exception as e:
+    logging.warning(f"Error initializing bcrypt, falling back to sha256: {str(e)}")
+    # Fallback to SHA256 if bcrypt fails (less secure but functional)
+    pwd_context = CryptContext(schemes=["sha256_crypt"], deprecated="auto")
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 

@@ -92,8 +92,7 @@ if %ERRORLEVEL% neq 0 (
     echo WARNING: Initial dependency installation encountered issues.
     echo Attempting alternative installation approach...
     
-    :: Try installing dependencies one by one with specific versions known to work with Python 3.13
-    python -m pip install --no-cache-dir typing-extensions>=4.9.0
+    :: Try installing dependencies one by one with specific versions known to work with Python 3.13    python -m pip install --no-cache-dir typing-extensions>=4.9.0
     python -m pip install --no-cache-dir pydantic-core>=2.14.3
     python -m pip install --no-cache-dir pydantic>=2.4.2
     python -m pip install --no-cache-dir fastapi>=0.104.1
@@ -103,6 +102,7 @@ if %ERRORLEVEL% neq 0 (
     python -m pip install --no-cache-dir email-validator>=2.1.0
     python -m pip install --no-cache-dir pyjwt==2.8.0
     python -m pip install --no-cache-dir python-jose[cryptography]==3.3.0
+    python -m pip install --no-cache-dir bcrypt==4.1.2
     python -m pip install --no-cache-dir passlib[bcrypt]==1.7.4
     python -m pip install --no-cache-dir python-dotenv==1.0.0
     
