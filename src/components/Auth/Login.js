@@ -82,6 +82,34 @@ const Login = () => {
     }
   };
 
+  // Function to safely extract error message from error object
+  const getErrorMessage = (error) => {
+    if (typeof error === 'string') return error;
+    if (!error) return 'An unknown error occurred';
+    
+    if (typeof error === 'object') {
+      // If error has a msg property, use it
+      if (error.msg) return error.msg;
+      
+      // If it has a message property (standard JS Error)
+      if (error.message) return error.message;
+      
+      // If it has a type and might be a validation error
+      if (error.type && error.loc) {
+        return `Validation error: ${error.msg || 'Invalid input'}`;
+      }
+      
+      // Return a stringified version as last resort
+      try {
+        return JSON.stringify(error);
+      } catch (e) {
+        return 'Error details cannot be displayed';
+      }
+    }
+    
+    return 'Login failed. Please check your credentials.';
+  };
+
   const bgColor = useColorModeValue('gray.50', 'gray.900');
   const cardBg = useColorModeValue('white', 'gray.800');
 
@@ -128,7 +156,7 @@ const Login = () => {
               {error && (
                 <Alert status="error" rounded="md">
                   <AlertIcon />
-                  {typeof error === 'object' ? (error.msg || 'Login failed. Please check your credentials.') : error}
+                  {getErrorMessage(error)}
                 </Alert>
               )}
 
