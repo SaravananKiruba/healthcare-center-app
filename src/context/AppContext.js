@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { patientsAPI } from '../services/api';
+import { useAuth } from './AuthContext';
 
 const AppContext = createContext();
 
@@ -42,9 +43,16 @@ export const AppProvider = ({ children }) => {
     { id: '1', name: 'Dr. John Doe', specialty: 'General Medicine' },
     { id: '2', name: 'Dr. Jane Smith', specialty: 'Pediatrics' },
     { id: '3', name: 'Dr. Robert Johnson', specialty: 'Orthopedics' },
-  ]);
-    // Load patients data from API or localStorage
+  ]);  // Get authentication state from AuthContext
+  const { isAuthenticated } = useAuth();
+  
+  // Load patients data from API only if user is authenticated
   useEffect(() => {
+    // Skip fetching if not authenticated
+    if (!isAuthenticated) {
+      return;
+    }
+    
     const fetchPatients = async () => {
       setIsLoading(true);
       try {
@@ -53,14 +61,17 @@ export const AppProvider = ({ children }) => {
         setError(null);
       } catch (err) {
         console.error("Failed to fetch patients:", err);
-        setError(typeof err === 'object' ? (err.message || "Failed to fetch patients") : err); // Ensure error is a string
+        // Only set error if it's not a 401 (unauthorized) error
+        if (err.response?.status !== 401) {
+          setError(typeof err === 'object' ? (err.message || "Failed to fetch patients") : err);
+        }
       } finally {
         setIsLoading(false);
       }
     };
     
     fetchPatients();
-  }, []);
+  }, [isAuthenticated]); // Re-fetch when authentication state changes
   // Add a new patient
   const addPatient = async (patientData) => {
     setIsLoading(true);
