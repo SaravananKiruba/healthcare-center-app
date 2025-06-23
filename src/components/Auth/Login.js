@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -18,9 +18,12 @@ import {
   IconButton,
   Text,
   useColorModeValue,
+  Spinner,
+  Center,
+  Flex,
 } from '@chakra-ui/react';
 import { ViewIcon, ViewOffIcon } from '@chakra-ui/icons';
-import { FiLock } from 'react-icons/fi';
+import { FiLock, FiUser } from 'react-icons/fi';
 import { useAuth } from '../../context/AuthContext';
 
 const Login = () => {
@@ -31,8 +34,24 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const location = useLocation();
+  const { login, isAuthenticated, user, getDashboardByRole } = useAuth();
+  
+  // Get color values for the theme
+  const bgColor = useColorModeValue('gray.50', 'gray.900');
+  const cardBg = useColorModeValue('white', 'gray.800');
+  
+  // Check if user is already authenticated
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      const from = location.state?.from?.pathname || getDashboardByRole(user.role);
+      navigate(from, { replace: true });
+    } else {
+      setIsCheckingAuth(false);
+    }
+  }, [isAuthenticated, user, navigate, location, getDashboardByRole]);
 
   const handleChange = (e) => {
     setFormData({
@@ -69,8 +88,12 @@ const Login = () => {
         // Clear form data after successful login
         setFormData({ email: '', password: '' });
         
-        // Navigate to the appropriate dashboard based on role
-        navigate(result.redirectTo);
+        // Get the intended destination (if redirected from a protected route)
+        // or use the default dashboard for the user's role
+        const from = location.state?.from?.pathname || result.redirectTo;
+        
+        // Navigate to the appropriate dashboard based on role or previous location
+        navigate(from, { replace: true });
       } else {
         setError(result.error);
       }
@@ -81,7 +104,7 @@ const Login = () => {
       setIsLoading(false);
     }
   };
-
+  
   // Function to safely extract error message from error object
   const getErrorMessage = (error) => {
     if (typeof error === 'string') return error;
@@ -98,20 +121,19 @@ const Login = () => {
       if (error.type && error.loc) {
         return `Validation error: ${error.msg || 'Invalid input'}`;
       }
-      
-      // Return a stringified version as last resort
-      try {
-        return JSON.stringify(error);
-      } catch (e) {
-        return 'Error details cannot be displayed';
-      }
     }
     
     return 'Login failed. Please check your credentials.';
   };
 
-  const bgColor = useColorModeValue('gray.50', 'gray.900');
-  const cardBg = useColorModeValue('white', 'gray.800');
+  // If still checking authentication status, show loading spinner
+  if (isCheckingAuth) {
+    return (
+      <Center h="100vh">
+        <Spinner size="xl" color="brand.500" thickness="4px" />
+      </Center>
+    );
+  }
 
   return (
     <Box
@@ -143,6 +165,7 @@ const Login = () => {
               <Text fontWeight="bold" mb={1}>Default Credentials:</Text>
               <Text>Admin: admin@healthcare.com / admin123</Text>
               <Text>Doctor: doctor@healthcare.com / doctor123</Text>
+              <Text>Clerk: clerk@healthcare.com / clerk123</Text>
             </Box>
             <Text color="gray.600" fontSize="sm">
               Sign in to your account
@@ -174,6 +197,7 @@ const Login = () => {
                     _focus={{
                       bg: 'white',
                       outline: 'none',
+                      borderColor: 'brand.500',
                     }}
                   />
                 </InputGroup>
@@ -193,6 +217,7 @@ const Login = () => {
                     _focus={{
                       bg: 'white',
                       outline: 'none',
+                      borderColor: 'brand.500',
                     }}
                   />
                   <InputRightElement>
@@ -202,6 +227,7 @@ const Login = () => {
                       onClick={() => setShowPassword(!showPassword)}
                       icon={showPassword ? <ViewOffIcon /> : <ViewIcon />}
                       variant="ghost"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
                     />
                   </InputRightElement>
                 </InputGroup>
@@ -218,11 +244,11 @@ const Login = () => {
                 Sign In
               </Button>
 
-              <Box textAlign="center" pt={4}>
-                <Text fontSize="sm" color="gray.600">
-                  Default Admin: admin@healthcare.com / admin123
+              <Flex justifyContent="center" width="100%" mt={2}>
+                <Text fontSize="sm" color="gray.500">
+                  Your session data will be securely stored locally
                 </Text>
-              </Box>
+              </Flex>
             </VStack>
           </form>
         </CardBody>

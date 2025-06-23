@@ -41,6 +41,23 @@ const processQueue = (error, token = null) => {
   failedQueue = [];
 };
 
+// Helper function to check if token is expired
+const isTokenExpired = (token) => {
+  if (!token) return true;
+  
+  try {
+    // Get the expiration time from the token payload
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const expiryTime = payload.exp * 1000; // Convert to milliseconds
+    const currentTime = Date.now();
+    
+    return currentTime >= expiryTime;
+  } catch (error) {
+    console.error('Error checking token expiration:', error);
+    return true;
+  }
+};
+
 const api = axios.create({
     baseURL: BASE_URL,
     headers: {
@@ -53,12 +70,25 @@ const api = axios.create({
  * 1. Adds authentication token
  * 2. Transforms request data from camelCase to snake_case
  * 3. Transforms URL parameters for GET requests
+ * 4. Checks token expiration before making request
  */
 api.interceptors.request.use((config) => {
-    // Add token to requests if available
-    const token = localStorage.getItem('token');
-    if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
+    // Skip token for authentication endpoints
+    const isAuthEndpoint = 
+        config.url.includes('/token') && 
+        config.method === 'post';
+        
+    if (!isAuthEndpoint) {
+        // Add token to requests if available
+        const token = localStorage.getItem('token');
+        if (token) {
+            // Check if token is expired
+            if (isTokenExpired(token) && !config._retry) {
+                // Token is expired, it will be handled by response interceptor
+                console.warn('Token is expired, request will likely fail');
+            }
+            config.headers.Authorization = `Bearer ${token}`;
+        }
     }
     
     // Transform request body from camelCase to snake_case
@@ -151,26 +181,63 @@ api.interceptors.response.use(
                 }
 
                 originalRequest._retry = true;
-                isRefreshing = true;
-
-                try {
-                    // For a real refresh token flow:
-                    // const refreshToken = localStorage.getItem('refreshToken');
-                    // const response = await api.post('/token/refresh', { refresh_token: refreshToken });
-                    // const { access_token } = response.data;
-                    // localStorage.setItem('token', access_token);
+                isRefreshing = true;                try {
+                    // For a refresh token flow:
+                    const refreshToken = localStorage.getItem('refreshToken');
                     
-                    // Since this project may not have a refresh token flow, 
-                    // we'll just handle the token expiration:
-                    localStorage.removeItem('token');
-                    localStorage.removeItem('user');
-                    
-                    // Process the queue to resolve/reject any pending requests
-                    processQueue(null, null);
-                    
-                    // Redirect to login
-                    window.location.href = '/';
-                    return Promise.reject(error);
+                    if (refreshToken) {
+                        try {
+                            const refreshData = new URLSearchParams();
+                            refreshData.append('refresh_token', refreshToken);
+                            
+                            const response = await axios.post(`${BASE_URL}/token/refresh`, refreshData, {
+                                headers: {
+                                    'Content-Type': 'application/x-www-form-urlencoded',
+                                },
+                            });
+                            
+                            const { access_token, refresh_token } = response.data;
+                            
+                            // Update tokens in localStorage
+                            localStorage.setItem('token', access_token);
+                            if (refresh_token) {
+                                localStorage.setItem('refreshToken', refresh_token);
+                            }
+                            
+                            // Update header for the original request
+                            originalRequest.headers['Authorization'] = `Bearer ${access_token}`;
+                            
+                            // Process the queue with the new token
+                            processQueue(null, access_token);
+                            
+                            // Retry the original request
+                            return api(originalRequest);
+                        } catch (refreshError) {
+                            // If refresh token is invalid, log out
+                            console.error('Error refreshing token:', refreshError);
+                            localStorage.removeItem('token');
+                            localStorage.removeItem('refreshToken');
+                            localStorage.removeItem('user');
+                            
+                            // Process the queue with the error
+                            processQueue(refreshError, null);
+                            
+                            // Redirect to login
+                            window.location.href = '/';
+                            return Promise.reject(refreshError);
+                        }
+                    } else {
+                        // No refresh token available, clear authentication
+                        localStorage.removeItem('token');
+                        localStorage.removeItem('user');
+                        
+                        // Process the queue to resolve/reject any pending requests
+                        processQueue(null, null);
+                        
+                        // Redirect to login
+                        window.location.href = '/';
+                        return Promise.reject(error);
+                    }
                 } catch (refreshError) {
                     processQueue(refreshError, null);
                     
@@ -207,9 +274,32 @@ export const authAPI = {
             },
         });
     },
+    logout: () => {
+        // Clear auth data from localStorage
+        localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+        
+        // Optional: Call a backend logout endpoint if it exists
+        // return api.post('/logout');
+        
+        return Promise.resolve({ success: true });
+    },
+    refreshToken: (refreshToken) => {
+        const formData = new URLSearchParams();
+        formData.append('refresh_token', refreshToken);
+        
+        return api.post('/token/refresh', formData, {
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+        });
+    },
     createUser: (userData) => api.post('/users/', userData),
     getCurrentUser: () => api.get('/me'),
     getUsers: () => api.get('/users/'),
+    updateUser: (id, userData) => api.put(`/users/${id}`, userData),
+    deleteUser: (id) => api.delete(`/users/${id}`),
 };
 
 export const patientsAPI = {

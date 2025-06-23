@@ -39,28 +39,47 @@ const ProtectedRoute = ({
       </Center>
     );
   }
-
   // Handle authentication check
   if (!isAuthenticated) {
-    // If showAlert is false, redirect to login
+    // If showAlert is false, redirect to login with location state to enable returning after login
     if (!showAlert) {
       return <Navigate to="/" state={{ from: location }} replace />;
     }
     
     // Otherwise show access denied message
     return (
-      <Box p={4}>
-        <Alert status="warning" variant="solid" borderRadius="md">
-          <AlertIcon />
-          <AlertTitle>Access Denied</AlertTitle>
-          <AlertDescription>
+      <Box p={4} maxW="600px" mx="auto" mt={10}>
+        <Alert 
+          status="warning" 
+          variant="solid" 
+          borderRadius="md"
+          flexDirection="column"
+          alignItems="center"
+          justifyContent="center"
+          textAlign="center"
+          py={4}
+        >
+          <AlertIcon boxSize="40px" mr={0} />
+          <AlertTitle mt={4} mb={1} fontSize="lg">
+            Authentication Required
+          </AlertTitle>
+          <AlertDescription maxWidth="sm">
             You must be logged in to access this page.
+            Please sign in to continue.
           </AlertDescription>
+          <Button 
+            mt={4} 
+            colorScheme="yellow" 
+            onClick={() => { 
+              window.location.href = "/"; 
+            }}
+          >
+            Go to Login
+          </Button>
         </Alert>
       </Box>
     );
   }
-
   // Handle role-based access control
   if (roles.length > 0 && !hasRole(roles)) {
     // If showAlert is false, redirect to dashboard
@@ -70,14 +89,37 @@ const ProtectedRoute = ({
     
     // Otherwise show insufficient permissions message
     return (
-      <Box p={4}>
-        <Alert status="error" variant="solid" borderRadius="md">
-          <AlertIcon />
-          <AlertTitle>Insufficient Permissions</AlertTitle>
-          <AlertDescription>
+      <Box p={4} maxW="600px" mx="auto" mt={10}>
+        <Alert 
+          status="error" 
+          variant="solid" 
+          borderRadius="md"
+          flexDirection="column"
+          alignItems="center"
+          justifyContent="center"
+          textAlign="center"
+          py={4}
+        >
+          <AlertIcon boxSize="40px" mr={0} />
+          <AlertTitle mt={4} mb={1} fontSize="lg">
+            Access Restricted
+          </AlertTitle>
+          <AlertDescription maxWidth="sm">
             You don't have the required permissions to access this page.
-            Required roles: {roles.join(', ')}. Your role: {user?.role || 'None'}
+            <Box mt={2}>
+              <Text fontWeight="bold">Required roles: {roles.join(', ')}</Text>
+              <Text>Your role: {user?.role || 'None'}</Text>
+            </Box>
           </AlertDescription>
+          <Button 
+            mt={4} 
+            colorScheme="red" 
+            onClick={() => { 
+              window.location.href = redirectTo; 
+            }}
+          >
+            Go to Dashboard
+          </Button>
         </Alert>
       </Box>
     );
