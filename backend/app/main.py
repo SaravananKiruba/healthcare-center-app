@@ -87,17 +87,24 @@ async def login_for_access_token(
             detail="Account is disabled. Please contact an administrator.",
             headers={"WWW-Authenticate": "Bearer"},
         )
-        
-    # Generate access token
+          # Generate access token
     access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = auth.create_access_token(
         data={"sub": user.email, "role": user.role, "user_id": user.id},
         expires_delta=access_token_expires
     )
     
+    # Return token with user information
     return {
         "access_token": access_token, 
         "token_type": "bearer",
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "full_name": user.full_name,
+            "role": user.role,
+            "is_active": user.is_active
+        },
         "user": {
             "id": user.id,
             "email": user.email,
@@ -389,10 +396,28 @@ def search_patients(
 def health_check():
     return {"status": "healthy", "message": "Healthcare Center API is running"}
 
-# Health check endpoint
+# Add a health check endpoint
 @app.get("/health")
-def health_check():
-    return {"status": "healthy", "message": "Healthcare Center API is running"}
+async def health_check(db: Session = Depends(get_db)):
+    """
+    Health check endpoint to verify the API and database are working
+    """
+    try:
+        # Check database connection by counting users
+        user_count = db.query(models.User).count()
+        return {
+            "status": "healthy",
+            "database": "connected",
+            "user_count": user_count,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "database": "error",
+            "error": str(e),
+            "timestamp": datetime.utcnow().isoformat()
+        }
 
 # Initialize default admin user
 @app.on_event("startup")

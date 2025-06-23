@@ -39,8 +39,7 @@ const Login = ({ onLogin }) => {
       [e.target.name]: e.target.value,
     });
     if (error) setError('');
-  };
-  const handleSubmit = async (e) => {
+  };  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
@@ -53,8 +52,20 @@ const Login = ({ onLogin }) => {
     }
 
     try {
+      // First check if the backend server is running
+      try {
+        await fetch('http://localhost:8000/health');
+      } catch (connectionError) {
+        throw new Error('Unable to connect to the server. Please check if the backend server is running.');
+      }
+      
       const response = await authAPI.login(formData.email, formData.password);
       const { access_token, user } = response.data;
+      
+      if (!user) {
+        console.error('Login succeeded but user data is missing from response');
+        throw new Error('Server returned incomplete data. Please try again.');
+      }
       
       // Store token and user info
       localStorage.setItem('token', access_token);
@@ -78,22 +89,29 @@ const Login = ({ onLogin }) => {
       // Extract meaningful error message
       let errorMessage;
       if (err.response) {
-        errorMessage = err.response.data?.detail || `Error ${err.response.status}: Login failed`;
+        // Server responded with an error
+        if (err.response.status === 401) {
+          errorMessage = 'Invalid email or password. Please try again or use the default credentials.';
+        } else {
+          errorMessage = err.response.data?.detail || `Error ${err.response.status}: Login failed`;
+        }
       } else if (err.request) {
-        errorMessage = 'No response from server. Please check your internet connection.';
+        // Network error - no response received
+        errorMessage = 'No response from server. Please check if the backend server is running.';
       } else {
+        // Other errors
         errorMessage = err.message || 'An unexpected error occurred';
       }
       
       // Ensure the error is a string, not an object
       setError(typeof errorMessage === 'object' ? JSON.stringify(errorMessage) : errorMessage);
       
-      // Show toast for error
+      // Show toast for error with more helpful guidance
       toast({
         title: 'Login Failed',
-        description: errorMessage,
+        description: `${errorMessage} (See the LOGIN_TROUBLESHOOTING.md file for help)`,
         status: 'error',
-        duration: 5000,
+        duration: 8000,
         isClosable: true,
       });
     } finally {
@@ -126,10 +144,14 @@ const Login = ({ onLogin }) => {
               justifyContent="center"
             >
               <FiLock size="24px" color="white" />
-            </Box>
-            <Heading size="lg" color="brand.500">
+            </Box>            <Heading size="lg" color="brand.500">
               Healthcare Center
             </Heading>
+            <Box mt={2} p={3} bg="blue.50" borderRadius="md" w="100%" fontSize="sm">
+              <Text fontWeight="bold" mb={1}>Default Credentials:</Text>
+              <Text>Admin: admin@healthcare.com / admin123</Text>
+              <Text>Doctor: doctor@healthcare.com / doctor123</Text>
+            </Box>
             <Text color="gray.600" fontSize="sm">
               Sign in to your account
             </Text>
