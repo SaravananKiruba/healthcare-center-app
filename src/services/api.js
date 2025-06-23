@@ -267,11 +267,17 @@ export const authAPI = {
         const formData = new URLSearchParams();
         formData.append('username', email);
         formData.append('password', password);
-        
-        return api.post('/token', formData, {
+          // Use the axios instance directly to bypass the json transformation interceptors
+        return axios.post(`${BASE_URL}/token`, formData, {
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
+        }).then(response => {
+            // Manually convert snake_case response to camelCase since we're bypassing the interceptor
+            if (response.data) {
+                response.data = snakeToCamelCase(response.data);
+            }
+            return response;
         });
     },
     logout: () => {

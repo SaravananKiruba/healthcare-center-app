@@ -23,7 +23,7 @@ import {
   Flex,
 } from '@chakra-ui/react';
 import { ViewIcon, ViewOffIcon } from '@chakra-ui/icons';
-import { FiLock, FiUser } from 'react-icons/fi';
+import { FiLock } from 'react-icons/fi';
 import { useAuth } from '../../context/AuthContext';
 
 const Login = () => {
@@ -99,13 +99,12 @@ const Login = () => {
       }
     } catch (err) {
       console.error('Login error:', err);
-      setError(err.message || 'An unexpected error occurred during login');
+      setError(err.message || (typeof err === 'object' ? 'An error occurred during login' : err || 'An unexpected error occurred during login'));
     } finally {
       setIsLoading(false);
     }
   };
-  
-  // Function to safely extract error message from error object
+    // Function to safely extract error message from error object
   const getErrorMessage = (error) => {
     if (typeof error === 'string') return error;
     if (!error) return 'An unknown error occurred';
@@ -121,6 +120,9 @@ const Login = () => {
       if (error.type && error.loc) {
         return `Validation error: ${error.msg || 'Invalid input'}`;
       }
+      
+      // If we can't extract any specific message, convert the object to a string
+      return JSON.stringify(error);
     }
     
     return 'Login failed. Please check your credentials.';
@@ -175,11 +177,10 @@ const Login = () => {
 
         <CardBody>
           <form onSubmit={handleSubmit}>
-            <VStack spacing={4}>
-              {error && (
+            <VStack spacing={4}>              {error && (
                 <Alert status="error" rounded="md">
                   <AlertIcon />
-                  {getErrorMessage(error)}
+                  {typeof error === 'object' ? getErrorMessage(error) : error}
                 </Alert>
               )}
 
