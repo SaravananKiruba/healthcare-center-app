@@ -1,6 +1,6 @@
 import React from 'react';
 import { ChakraProvider } from '@chakra-ui/react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import theme from './theme/theme';
@@ -19,9 +19,23 @@ import Reports from './pages/Reports/Reports';
 import Search from './pages/Search/Search';
 import Settings from './pages/Settings/Settings';
 import NotFound from './pages/NotFound';
+import UserManagement from './components/UserManagement/UserManagement';
 
+// Auth route component to handle the case when user is already logged in
+const AuthRoute = ({ children }) => {
+  const { isAuthenticated, user, getDashboardByRole } = useAuth();
+
+  if (isAuthenticated) {
+    // If user is already logged in, redirect to their role-specific dashboard
+    return <Navigate to={getDashboardByRole(user?.role)} replace />;
+  }
+
+  return children;
+};
+
+// Main content of the app with routes
 const AppContent = () => {
-  const { isAuthenticated, isLoading, login } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
     return (
@@ -36,63 +50,130 @@ const AppContent = () => {
     );
   }
 
-  if (!isAuthenticated) {
-    return <Login onLogin={login} />;
-  }
-
   return (
     <AppProvider>
       <Router>
-        <MainLayout>
-          <Routes>
-            <Route path="/" element={
-              <ProtectedRoute>
+        <Routes>
+          {/* Public routes */}
+          <Route path="/" element={
+            <AuthRoute>
+              <Login />
+            </AuthRoute>
+          } />
+
+          {/* Role-specific dashboard routes */}
+          <Route path="/admin-dashboard" element={
+            <ProtectedRoute roles={['admin']} redirectTo="/" showAlert={false}>
+              <MainLayout>
                 <Dashboard />
-              </ProtectedRoute>
-            } />
-            <Route path="/patient/register" element={
-              <ProtectedRoute roles={['admin', 'doctor', 'clerk']}>
-                <PatientRegistration />
-              </ProtectedRoute>
-            } />
-            <Route path="/patients" element={
-              <ProtectedRoute>
-                <PatientList />
-              </ProtectedRoute>
-            } />
-            <Route path="/patient/:id" element={
-              <ProtectedRoute>
-                <PatientView />
-              </ProtectedRoute>
-            } />
-            <Route path="/billing" element={
-              <ProtectedRoute roles={['admin', 'clerk']}>
-                <Billing />
-              </ProtectedRoute>
-            } />
-            <Route path="/billing/new/:patientId" element={
-              <ProtectedRoute roles={['admin', 'clerk']}>
-                <BillingForm />
-              </ProtectedRoute>
-            } />
-            <Route path="/reports" element={
-              <ProtectedRoute>
-                <Reports />
-              </ProtectedRoute>
-            } />
-            <Route path="/search" element={
-              <ProtectedRoute>
-                <Search />
-              </ProtectedRoute>
-            } />
-            <Route path="/settings" element={
-              <ProtectedRoute roles={['admin']}>
+              </MainLayout>
+            </ProtectedRoute>
+          } />
+
+          <Route path="/doctor-dashboard" element={
+            <ProtectedRoute roles={['doctor']} redirectTo="/" showAlert={false}>
+              <MainLayout>
+                <Dashboard />
+              </MainLayout>
+            </ProtectedRoute>
+          } />
+
+          <Route path="/clerk-dashboard" element={
+            <ProtectedRoute roles={['clerk']} redirectTo="/" showAlert={false}>
+              <MainLayout>
+                <Dashboard />
+              </MainLayout>
+            </ProtectedRoute>
+          } />
+
+          {/* General authenticated routes */}
+          <Route path="/dashboard" element={
+            <ProtectedRoute redirectTo="/" showAlert={false}>
+              <MainLayout>
+                <Dashboard />
+              </MainLayout>
+            </ProtectedRoute>
+          } />
+
+          {/* Admin-only routes */}
+          <Route path="/settings" element={
+            <ProtectedRoute roles={['admin']} redirectTo="/dashboard" showAlert={false}>
+              <MainLayout>
                 <Settings />
-              </ProtectedRoute>
-            } />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </MainLayout>
+              </MainLayout>
+            </ProtectedRoute>
+          } />
+
+          <Route path="/users" element={
+            <ProtectedRoute roles={['admin']} redirectTo="/dashboard" showAlert={false}>
+              <MainLayout>
+                <UserManagement />
+              </MainLayout>
+            </ProtectedRoute>
+          } />
+
+          {/* Routes for admin, doctor, clerk */}
+          <Route path="/patient/register" element={
+            <ProtectedRoute roles={['admin', 'doctor', 'clerk']} redirectTo="/dashboard" showAlert={false}>
+              <MainLayout>
+                <PatientRegistration />
+              </MainLayout>
+            </ProtectedRoute>
+          } />
+
+          <Route path="/patients" element={
+            <ProtectedRoute redirectTo="/" showAlert={false}>
+              <MainLayout>
+                <PatientList />
+              </MainLayout>
+            </ProtectedRoute>
+          } />
+
+          <Route path="/patient/:id" element={
+            <ProtectedRoute redirectTo="/" showAlert={false}>
+              <MainLayout>
+                <PatientView />
+              </MainLayout>
+            </ProtectedRoute>
+          } />
+
+          {/* Billing routes - admin and clerk only */}
+          <Route path="/billing" element={
+            <ProtectedRoute roles={['admin', 'clerk']} redirectTo="/dashboard" showAlert={false}>
+              <MainLayout>
+                <Billing />
+              </MainLayout>
+            </ProtectedRoute>
+          } />
+
+          <Route path="/billing/new/:patientId" element={
+            <ProtectedRoute roles={['admin', 'clerk']} redirectTo="/dashboard" showAlert={false}>
+              <MainLayout>
+                <BillingForm />
+              </MainLayout>
+            </ProtectedRoute>
+          } />
+
+          {/* Common routes for all authenticated users */}
+          <Route path="/reports" element={
+            <ProtectedRoute redirectTo="/" showAlert={false}>
+              <MainLayout>
+                <Reports />
+              </MainLayout>
+            </ProtectedRoute>
+          } />
+
+          <Route path="/search" element={
+            <ProtectedRoute redirectTo="/" showAlert={false}>
+              <MainLayout>
+                <Search />
+              </MainLayout>
+            </ProtectedRoute>
+          } />
+
+          {/* 404 route */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
       </Router>
     </AppProvider>
   );

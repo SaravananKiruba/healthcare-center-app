@@ -140,11 +140,16 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    token_data = verify_token(token, credentials_exception)
-    user = db.query(models.User).filter(models.User.email == token_data.email).first()
-    if user is None:
+    
+    try:
+        token_data = verify_token(token, credentials_exception)
+        user = db.query(models.User).filter(models.User.email == token_data.email).first()
+        if user is None:
+            raise credentials_exception
+        return user
+    except Exception as e:
+        print(f"Error getting current user: {str(e)}")
         raise credentials_exception
-    return user
 
 async def get_current_active_user(current_user: models.User = Depends(get_current_user)):
     """Get current active user"""

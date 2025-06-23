@@ -86,6 +86,8 @@ cd backend
 python -m pip install --upgrade pip
 :: Install core dependencies first to ensure compatibility with Python 3.13
 python -m pip install --no-cache-dir typing-extensions>=4.9.0 pydantic-core>=2.14.3 pydantic>=2.4.2
+:: Make sure we use a compatible bcrypt version before installing other requirements
+python -m pip install --no-cache-dir bcrypt==3.2.2
 python -m pip install --no-cache-dir -r requirements.txt
 if %ERRORLEVEL% neq 0 (
     echo.
@@ -102,7 +104,8 @@ if %ERRORLEVEL% neq 0 (
     python -m pip install --no-cache-dir email-validator>=2.1.0
     python -m pip install --no-cache-dir pyjwt==2.8.0
     python -m pip install --no-cache-dir python-jose[cryptography]==3.3.0
-    python -m pip install --no-cache-dir bcrypt==4.1.2
+    :: Install compatible versions of bcrypt and passlib to avoid the __about__ attribute error
+    python -m pip install --no-cache-dir bcrypt==3.2.2
     python -m pip install --no-cache-dir passlib[bcrypt]==1.7.4
     python -m pip install --no-cache-dir python-dotenv==1.0.0
     
@@ -140,12 +143,12 @@ if %ERRORLEVEL% neq 0 (
     echo.
     echo This might be due to compatibility issues between Python 3.13 and the dependencies.
     echo Trying with a more specific approach...
-    
-    :: Try again with a more direct approach
+      :: Try again with a more direct approach - ensure we have the compatible bcrypt version
     python -m pip install --no-cache-dir pydantic-core>=2.14.3 pydantic>=2.4.2
+    python -m pip install --no-cache-dir bcrypt==3.2.2
     
     :: Try again with the script
-    python initialize_db.py    if %ERRORLEVEL% neq 0 (
+    python initialize_db.pyif %ERRORLEVEL% neq 0 (
         echo.
         echo ERROR: Database initialization failed. Please try running the following commands manually:
         echo cd backend

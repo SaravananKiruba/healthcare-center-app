@@ -26,6 +26,21 @@ import {
 
 const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
+// Create a token refreshing mechanism
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
 const api = axios.create({
     baseURL: BASE_URL,
     headers: {
@@ -96,7 +111,10 @@ api.interceptors.response.use(
         }
         return response;
     },
-    (error) => {
+    async (error) => {
+        // Store the original request to retry
+        const originalRequest = error.config;
+        
         // Log the error with useful debugging information
         console.error("API Error:", {
             url: error.config?.url,
@@ -114,19 +132,57 @@ api.interceptors.response.use(
         
         // Handle authentication errors
         if (error.response?.status === 401) {
-            // Check if this is a login attempt
-            const isLoginAttempt = error.config?.url?.includes('/token');
+            // Check if this is a login attempt (don't retry auth endpoints)
+            const isAuthEndpoint = originalRequest.url.includes('/token');
             
-            if (!isLoginAttempt) {
-                // For other API calls, clear auth and redirect
-                console.log("Session expired or invalid. Redirecting to login.");
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
-                
-                // Use a small delay to allow the current operation to complete
-                setTimeout(() => {
+            if (!isAuthEndpoint && !originalRequest._retry) {
+                if (isRefreshing) {
+                    // If we're already refreshing the token, queue this request
+                    return new Promise((resolve, reject) => {
+                        failedQueue.push({ resolve, reject });
+                    })
+                    .then(token => {
+                        originalRequest.headers['Authorization'] = `Bearer ${token}`;
+                        return api(originalRequest);
+                    })
+                    .catch(err => {
+                        return Promise.reject(err);
+                    });
+                }
+
+                originalRequest._retry = true;
+                isRefreshing = true;
+
+                try {
+                    // For a real refresh token flow:
+                    // const refreshToken = localStorage.getItem('refreshToken');
+                    // const response = await api.post('/token/refresh', { refresh_token: refreshToken });
+                    // const { access_token } = response.data;
+                    // localStorage.setItem('token', access_token);
+                    
+                    // Since this project may not have a refresh token flow, 
+                    // we'll just handle the token expiration:
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    
+                    // Process the queue to resolve/reject any pending requests
+                    processQueue(null, null);
+                    
+                    // Redirect to login
                     window.location.href = '/';
-                }, 100);
+                    return Promise.reject(error);
+                } catch (refreshError) {
+                    processQueue(refreshError, null);
+                    
+                    // Clear authentication and redirect
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    window.location.href = '/';
+                    
+                    return Promise.reject(refreshError);
+                } finally {
+                    isRefreshing = false;
+                }
             }
         }
         

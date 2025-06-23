@@ -53,7 +53,16 @@ async def log_requests(request: Request, call_next):
     except Exception as e:
         print(f"Error processing request {request.url.path}: {str(e)}")
         traceback.print_exc()
-        raise
+        # Create a properly formatted error response instead of re-raising
+        return JSONResponse(
+            status_code=500,
+            content={
+                "detail": str(e),
+                "path": request.url.path,
+                "method": request.method,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+        )
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
@@ -64,47 +73,60 @@ async def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ):
-    # Add rate limiting for login attempts (simple implementation)
-    client_ip = request.client.host
-    current_time = datetime.utcnow()
-    
-    # Log login attempt
-    print(f"Login attempt from {client_ip} at {current_time} for user: {form_data.username}")
-    
-    # Authenticate user
-    user = auth.authenticate_user(db, form_data.username, form_data.password)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password",
-            headers={"WWW-Authenticate": "Bearer"},
+    try:
+        # Add rate limiting for login attempts (simple implementation)
+        client_ip = request.client.host
+        current_time = datetime.utcnow()
+        
+        # Log login attempt
+        print(f"Login attempt from {client_ip} at {current_time} for user: {form_data.username}")
+        
+        # Authenticate user
+        user = auth.authenticate_user(db, form_data.username, form_data.password)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid email or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+            
+        # Check if user is active
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Account is disabled. Please contact an administrator.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
+        # Generate access token
+        access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = auth.create_access_token(
+            data={"sub": user.email, "role": user.role, "user_id": user.id},
+            expires_delta=access_token_expires
         )
         
-    # Check if user is active
-    if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Account is disabled. Please contact an administrator.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-          # Generate access token
-    access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = auth.create_access_token(
-        data={"sub": user.email, "role": user.role, "user_id": user.id},
-        expires_delta=access_token_expires
-    )
-      # Return token with user information
-    return {
-        "access_token": access_token, 
-        "token_type": "bearer",
-        "user": {
-            "id": user.id,
-            "email": user.email,
-            "full_name": user.full_name,
-            "role": user.role,
-            "is_active": user.is_active
+        # Return token with user information
+        return {
+            "access_token": access_token, 
+            "token_type": "bearer",
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "full_name": user.full_name,
+                "role": user.role,
+                "is_active": user.is_active
+            }
         }
-    }
+    except HTTPException:
+        # Re-raise HTTP exceptions to maintain status codes
+        raise
+    except Exception as e:
+        print(f"Error in login_for_access_token: {str(e)}")
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error during login"
+        )
 
 @app.get("/me", response_model=schemas.User)
 async def read_users_me(current_user: models.User = Depends(auth.get_current_active_user)):
@@ -172,8 +194,13 @@ def read_patients(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(auth.get_current_active_user)
 ):
-    patients = db.query(models.Patient).offset(skip).limit(limit).all()
-    return patients
+    try:
+        patients = db.query(models.Patient).offset(skip).limit(limit).all()
+        return patients
+    except Exception as e:
+        print(f"Error fetching patients: {str(e)}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @app.get("/patients/{patient_id}", response_model=schemas.Patient)
 def read_patient(

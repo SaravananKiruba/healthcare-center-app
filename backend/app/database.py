@@ -48,16 +48,18 @@ Base = declarative_base()
 def get_db():
     retries = 3
     retry_delay = 0.5  # Start with 0.5 second delay
+    db = None
     
     for attempt in range(retries):
-        db = SessionLocal()
         try:
+            db = SessionLocal()
             # Test the connection before returning it
             db.execute(text("SELECT 1"))
-            yield db
             break  # Connection successful, exit the retry loop
         except Exception as e:
-            db.close()
+            if db:
+                db.close()
+                db = None
             if attempt < retries - 1:  # Don't wait after the last attempt
                 print(f"Database connection attempt {attempt+1} failed: {str(e)}")
                 print(f"Retrying in {retry_delay} seconds...")
@@ -67,5 +69,9 @@ def get_db():
                 print(f"All database connection attempts failed")
                 traceback.print_exc()
                 raise
-        finally:
+    
+    try:
+        yield db
+    finally:
+        if db:
             db.close()

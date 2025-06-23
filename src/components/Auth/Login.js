@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -12,7 +13,6 @@ import {
   Card,
   CardHeader,
   CardBody,
-  useToast,
   InputGroup,
   InputRightElement,
   IconButton,
@@ -21,9 +21,9 @@ import {
 } from '@chakra-ui/react';
 import { ViewIcon, ViewOffIcon } from '@chakra-ui/icons';
 import { FiLock } from 'react-icons/fi';
-import { authAPI } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 
-const Login = ({ onLogin }) => {
+const Login = () => {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -31,7 +31,8 @@ const Login = ({ onLogin }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const toast = useToast();
+  const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleChange = (e) => {
     setFormData({
@@ -39,7 +40,9 @@ const Login = ({ onLogin }) => {
       [e.target.name]: e.target.value,
     });
     if (error) setError('');
-  };  const handleSubmit = async (e) => {
+  };
+  
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
@@ -59,61 +62,21 @@ const Login = ({ onLogin }) => {
         throw new Error('Unable to connect to the server. Please check if the backend server is running.');
       }
       
-      const response = await authAPI.login(formData.email, formData.password);
-      const { access_token, user } = response.data;
+      // Use the enhanced login function from AuthContext
+      const result = await login(formData.email, formData.password);
       
-      if (!user) {
-        console.error('Login succeeded but user data is missing from response');
-        throw new Error('Server returned incomplete data. Please try again.');
+      if (result.success) {
+        // Clear form data after successful login
+        setFormData({ email: '', password: '' });
+        
+        // Navigate to the appropriate dashboard based on role
+        navigate(result.redirectTo);
+      } else {
+        setError(result.error);
       }
-      
-      // Store token and user info
-      localStorage.setItem('token', access_token);
-      localStorage.setItem('user', JSON.stringify(user));
-      
-      toast({
-        title: 'Login Successful',
-        description: `Welcome back, ${user.full_name}!`,
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
-
-      // Clear form data after successful login
-      setFormData({ email: '', password: '' });
-      
-      onLogin(user);
     } catch (err) {
       console.error('Login error:', err);
-      
-      // Extract meaningful error message
-      let errorMessage;
-      if (err.response) {
-        // Server responded with an error
-        if (err.response.status === 401) {
-          errorMessage = 'Invalid email or password. Please try again or use the default credentials.';
-        } else {
-          errorMessage = err.response.data?.detail || `Error ${err.response.status}: Login failed`;
-        }
-      } else if (err.request) {
-        // Network error - no response received
-        errorMessage = 'No response from server. Please check if the backend server is running.';
-      } else {
-        // Other errors
-        errorMessage = err.message || 'An unexpected error occurred';
-      }
-      
-      // Ensure the error is a string, not an object
-      setError(typeof errorMessage === 'object' ? JSON.stringify(errorMessage) : errorMessage);
-      
-      // Show toast for error with more helpful guidance
-      toast({
-        title: 'Login Failed',
-        description: `${errorMessage} (See the LOGIN_TROUBLESHOOTING.md file for help)`,
-        status: 'error',
-        duration: 8000,
-        isClosable: true,
-      });
+      setError(err.message || 'An unexpected error occurred during login');
     } finally {
       setIsLoading(false);
     }
@@ -144,7 +107,8 @@ const Login = ({ onLogin }) => {
               justifyContent="center"
             >
               <FiLock size="24px" color="white" />
-            </Box>            <Heading size="lg" color="brand.500">
+            </Box>
+            <Heading size="lg" color="brand.500">
               Healthcare Center
             </Heading>
             <Box mt={2} p={3} bg="blue.50" borderRadius="md" w="100%" fontSize="sm">
@@ -160,7 +124,8 @@ const Login = ({ onLogin }) => {
 
         <CardBody>
           <form onSubmit={handleSubmit}>
-            <VStack spacing={4}>              {error && (
+            <VStack spacing={4}>
+              {error && (
                 <Alert status="error" rounded="md">
                   <AlertIcon />
                   {typeof error === 'object' ? (error.msg || 'Login failed. Please check your credentials.') : error}
