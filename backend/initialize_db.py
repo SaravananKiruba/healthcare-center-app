@@ -8,7 +8,12 @@ def run_init():
     try:
         from app.init_db import init_db
         init_db()
-        print('Database initialized successfully!')
+        
+        # Run migrations after initializing
+        from app.migrations import run_migrations
+        run_migrations()
+        
+        print('Database initialized and migrated successfully!')
     except Exception as e:
         print(f'Error initializing database: {e}')
         sys.exit(1)
