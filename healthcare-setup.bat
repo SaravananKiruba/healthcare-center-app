@@ -148,7 +148,8 @@ if %ERRORLEVEL% neq 0 (
     python -m pip install --no-cache-dir bcrypt==3.2.2
     
     :: Try again with the script
-    python initialize_db.pyif %ERRORLEVEL% neq 0 (
+    python initialize_db.py
+if %ERRORLEVEL% neq 0 (
         echo.
         echo ERROR: Database initialization failed. Please try running the following commands manually:
         echo cd backend
