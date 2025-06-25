@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { patientsAPI, investigationsAPI, treatmentsAPI } from '../services/api';
+import { patientsAPI, investigationsAPI, treatmentsAPI, invoicesAPI } from '../services/api';
 import { useAuth } from './AuthContext';
 
 const AppContext = createContext();
@@ -141,43 +141,116 @@ export const AppProvider = ({ children }) => {
   };
   
   // Add a new invoice
-  const addInvoice = (patientId, invoiceData) => {
-    const updatedPatients = patients.map(patient => {
-      if (patient.id === patientId) {
-        const invoices = patient.invoices || [];
-        return {
-          ...patient,
-          invoices: [...invoices, { id: uuidv4(), ...invoiceData }]
-        };
-      }
-      return patient;
-    });
-    
-    setPatients(updatedPatients);
-    return updatedPatients.find(p => p.id === patientId)?.invoices.slice(-1)[0];
+  const addInvoice = async (patientId, invoiceData) => {
+    setIsLoading(true);
+    try {
+      // Prepare data for API submission
+      const apiData = {
+        ...invoiceData,
+        patientId: patientId,
+        date: new Date(invoiceData.date).toISOString()
+      };
+      
+      // Call the API
+      const response = await invoicesAPI.createInvoice(apiData);
+      const newInvoice = response.data;
+      
+      // Update local state
+      setPatients(prevPatients => prevPatients.map(patient => {
+        if (patient.id === patientId) {
+          const invoices = patient.invoices || [];
+          return {
+            ...patient,
+            invoices: [...invoices, newInvoice]
+          };
+        }
+        return patient;
+      }));
+      
+      setError(null);
+      return newInvoice.id;
+    } catch (err) {
+      console.error("Failed to add invoice:", err);
+      const errorMessage = err.response?.data?.detail || 
+                         err.message || 
+                         "Failed to add invoice";
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
   };
   
   // Update an existing invoice
-  const updateInvoice = (patientId, invoiceId, invoiceData) => {
-    const updatedPatients = patients.map(patient => {
-      if (patient.id === patientId) {
-        const invoices = patient.invoices || [];
-        return {
-          ...patient,
-          invoices: invoices.map(invoice => 
-            invoice.id === invoiceId 
-              ? { ...invoice, ...invoiceData, updatedAt: new Date().toISOString() }
-              : invoice
-          )
+  const updateInvoice = async (patientId, invoiceId, invoiceData) => {
+    setIsLoading(true);
+    try {
+      // First, handle payment update if this is a payment status change
+      if ('paymentStatus' in invoiceData && !('items' in invoiceData)) {
+        // This is a payment update
+        const paymentData = {
+          paymentStatus: invoiceData.paymentStatus,
+          paymentMode: invoiceData.paymentMode,
+          transactionId: invoiceData.transactionId,
+          amountPaid: invoiceData.amountPaid,
+          paymentDate: new Date().toISOString()
         };
+        
+        const response = await invoicesAPI.updatePayment(invoiceId, paymentData);
+        const updatedInvoice = response.data;
+        
+        // Update local state
+        setPatients(prevPatients => prevPatients.map(patient => {
+          if (patient.id === patientId) {
+            return {
+              ...patient,
+              invoices: (patient.invoices || []).map(invoice => 
+                invoice.id === invoiceId ? updatedInvoice : invoice
+              )
+            };
+          }
+          return patient;
+        }));
+        
+        setError(null);
+        return updatedInvoice;
+      } else {
+        // This is a full invoice update
+        const apiData = {
+          ...invoiceData,
+          patientId: patientId,
+          date: invoiceData.date ? new Date(invoiceData.date).toISOString() : new Date().toISOString()
+        };
+        
+        const response = await invoicesAPI.updateInvoice(invoiceId, apiData);
+        const updatedInvoice = response.data;
+        
+        // Update local state
+        setPatients(prevPatients => prevPatients.map(patient => {
+          if (patient.id === patientId) {
+            return {
+              ...patient,
+              invoices: (patient.invoices || []).map(invoice => 
+                invoice.id === invoiceId ? updatedInvoice : invoice
+              )
+            };
+          }
+          return patient;
+        }));
+        
+        setError(null);
+        return updatedInvoice;
       }
-      return patient;
-    });
-    
-    setPatients(updatedPatients);
-    return updatedPatients
-      .find(p => p.id === patientId)
-      ?.invoices.find(inv => inv.id === invoiceId);
+    } catch (err) {
+      console.error("Failed to update invoice:", err);
+      const errorMessage = err.response?.data?.detail || 
+                         err.message || 
+                         "Failed to update invoice";
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
   };
   
   // Add a new investigation

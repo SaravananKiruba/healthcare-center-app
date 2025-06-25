@@ -331,9 +331,23 @@ export const treatmentsAPI = {
 
 export const invoicesAPI = {
     createInvoice: (data) => api.post('/invoices/', data),
-    getInvoices: (patientId) => 
-        api.get('/invoices/', patientId ? { params: { patientId } } : {}),
+    getInvoices: (patientId, filters) => {
+        const params = {};
+        if (patientId) params.patientId = patientId;
+        if (filters?.status) params.status = filters.status;
+        if (filters?.fromDate) params.fromDate = filters.fromDate;
+        if (filters?.toDate) params.toDate = filters.toDate;
+        return api.get('/invoices/', { params });
+    },
+    getInvoice: (id) => api.get(`/invoices/${id}`),
     updateInvoice: (id, data) => api.put(`/invoices/${id}`, data),
+    updatePayment: (id, paymentData) => api.patch(`/invoices/${id}/payment`, paymentData),
+    getInvoiceSummary: (fromDate, toDate) => {
+        const params = {};
+        if (fromDate) params.fromDate = fromDate;
+        if (toDate) params.toDate = toDate;
+        return api.get('/invoices/reports/summary', { params });
+    }
 };
 
 export const statsAPI = {

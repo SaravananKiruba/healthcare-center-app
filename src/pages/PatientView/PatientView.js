@@ -42,6 +42,7 @@ import {
   Input,
   Select,
   Textarea,
+  IconButton,
 } from '@chakra-ui/react';
 import { useParams, Link as RouterLink, useNavigate } from 'react-router-dom';
 import {
@@ -1945,8 +1946,9 @@ const BillingTab = ({ patient }) => {
   const { isOpen: isViewModalOpen, onOpen: onOpenViewModal, onClose: onCloseViewModal } = useDisclosure();
   const { isOpen: isEditModalOpen, onOpen: onOpenEditModal, onClose: onCloseEditModal } = useDisclosure();
   const [selectedInvoice, setSelectedInvoice] = useState(null);
-  const { updateInvoice } = useAppContext();
+  const { updateInvoice, isLoading } = useAppContext();
   const toast = useToast();
+  const [paymentFormErrors, setPaymentFormErrors] = useState({});
   
   const handleViewInvoice = (invoice) => {
     setSelectedInvoice(invoice);
@@ -1955,6 +1957,7 @@ const BillingTab = ({ patient }) => {
   
   const handleEditInvoice = (invoice) => {
     setSelectedInvoice(invoice);
+    setPaymentFormErrors({});
     onOpenEditModal();
   };
   
@@ -1968,7 +1971,7 @@ const BillingTab = ({ patient }) => {
       return new Intl.DateTimeFormat('en-US', {
         year: 'numeric',
         month: 'short',
-        day: 'numeric',
+        day: 'numeric'
       }).format(date);
     } catch (error) {
       return dateString || "N/A";
@@ -1982,6 +1985,77 @@ const BillingTab = ({ patient }) => {
       currency: 'USD',
       minimumFractionDigits: 2,
     }).format(amount || 0);
+  };
+  
+  // Sort invoices by date (newest first)
+  const sortedInvoices = [...(patient.invoices || [])].sort((a, b) => {
+    return new Date(b.date) - new Date(a.date);
+  });
+  
+  // Validate payment form
+  const validatePaymentForm = (formData) => {
+    const errors = {};
+    const status = formData.get('paymentStatus');
+    const mode = formData.get('paymentMode');
+    const amountPaid = parseFloat(formData.get('amountPaid'));
+    
+    if (status === 'Paid' && amountPaid < selectedInvoice.total) {
+      errors.amountPaid = "Amount paid must equal or exceed total amount for Paid status";
+    }
+    
+    if (status === 'Partial' && (!amountPaid || amountPaid <= 0 || amountPaid >= selectedInvoice.total)) {
+      errors.amountPaid = "For partial payment, amount must be greater than 0 and less than total";
+    }
+    
+    if ((status === 'Paid' || status === 'Partial') && !mode) {
+      errors.paymentMode = "Payment mode is required";
+    }
+    
+    setPaymentFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+  
+  // Handle payment update
+  const handlePaymentUpdate = async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const status = formData.get('paymentStatus');
+    const mode = formData.get('paymentMode');
+    const transactionId = formData.get('transactionId');
+    const amountPaid = parseFloat(formData.get('amountPaid'));
+    
+    // Validate form
+    if (!validatePaymentForm(formData)) {
+      return;
+    }
+    
+    try {
+      // Update invoice
+      await updateInvoice(patient.id, selectedInvoice.id, {
+        paymentStatus: status,
+        paymentMode: mode,
+        transactionId,
+        amountPaid,
+      });
+      
+      toast({
+        title: 'Invoice Updated',
+        description: `Payment status updated to ${status}`,
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+      
+      onCloseEditModal();
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error.message || "Failed to update payment status",
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    }
   };
   
   return (
@@ -2014,8 +2088,8 @@ const BillingTab = ({ patient }) => {
                 </Tr>
               </Thead>
               <Tbody>
-                {patient.invoices && patient.invoices.length > 0 ? (
-                  patient.invoices.map(invoice => (
+                {sortedInvoices.length > 0 ? (
+                  sortedInvoices.map(invoice => (
                     <Tr key={invoice.id}>
                       <Td fontFamily="mono">{invoice.id}</Td>
                       <Td>{formatDate(invoice.date)}</Td>
@@ -2047,6 +2121,21 @@ const BillingTab = ({ patient }) => {
                               Edit
                             </Button>
                           )}
+                          <IconButton 
+                            size="sm" 
+                            variant="ghost"
+                            colorScheme="red" 
+                            icon={<FiPrinter />} 
+                            onClick={() => {
+                              toast({
+                                title: 'Print Invoice',
+                                description: 'Printing feature will be implemented soon.',
+                                status: 'info',
+                                duration: 3000,
+                                isClosable: true
+                              });
+                            }}
+                          />
                         </HStack>
                       </Td>
                     </Tr>
@@ -2187,6 +2276,44 @@ const BillingTab = ({ patient }) => {
                     </Box>
                   </>
                 )}
+                
+                {selectedInvoice.paymentHistory && selectedInvoice.paymentHistory.length > 0 && (
+                  <>
+                    <Divider />
+                    <Box>
+                      <Text fontWeight="bold" mb={3}>Payment History</Text>
+                      <TableContainer>
+                        <Table size="sm" variant="simple">
+                          <Thead bg="gray.50">
+                            <Tr>
+                              <Th>Date</Th>
+                              <Th>Amount</Th>
+                              <Th>Mode</Th>
+                              <Th>Status</Th>
+                            </Tr>
+                          </Thead>
+                          <Tbody>
+                            {selectedInvoice.paymentHistory.map((payment, index) => (
+                              <Tr key={index}>
+                                <Td>{formatDate(payment.date)}</Td>
+                                <Td>{formatCurrency(payment.amount)}</Td>
+                                <Td>{payment.mode || 'N/A'}</Td>
+                                <Td>
+                                  <Badge colorScheme={
+                                    payment.status === 'Paid' ? 'green' : 
+                                    payment.status === 'Partial' ? 'yellow' : 'red'
+                                  }>
+                                    {payment.status}
+                                  </Badge>
+                                </Td>
+                              </Tr>
+                            ))}
+                          </Tbody>
+                        </Table>
+                      </TableContainer>
+                    </Box>
+                  </>
+                )}
               </VStack>
             )}
           </ModalBody>
@@ -2212,65 +2339,16 @@ const BillingTab = ({ patient }) => {
       </Modal>
       
       {/* Invoice Edit Modal - For updating payment status */}
-      <Modal isOpen={isEditModalOpen} onClose={onCloseEditModal}>
+      <Modal isOpen={isEditModalOpen} onClose={onCloseEditModal} size="md">
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>Update Payment Status</ModalHeader>
           <ModalCloseButton />
           <ModalBody>
             {selectedInvoice && (
-              <Box as="form" id="edit-invoice-form" onSubmit={(e) => {
-                e.preventDefault();
-                const formData = new FormData(e.target);
-                const status = formData.get('paymentStatus');
-                const mode = formData.get('paymentMode');
-                const transactionId = formData.get('transactionId');
-                const amountPaid = parseFloat(formData.get('amountPaid'));
-                
-                // Validate form
-                if (status === 'Paid' && amountPaid < selectedInvoice.total) {
-                  toast({
-                    title: 'Validation Error',
-                    description: 'Amount paid must equal total for Paid status',
-                    status: 'error',
-                    duration: 3000,
-                    isClosable: true,
-                  });
-                  return;
-                }
-                
-                if (status === 'Partial' && (!amountPaid || amountPaid <= 0 || amountPaid >= selectedInvoice.total)) {
-                  toast({
-                    title: 'Validation Error',
-                    description: 'For partial payment, amount must be greater than 0 and less than total',
-                    status: 'error',
-                    duration: 3000,
-                    isClosable: true,
-                  });
-                  return;
-                }
-                
-                // Update invoice
-                updateInvoice(patient.id, selectedInvoice.id, {
-                  paymentStatus: status,
-                  paymentMode: mode,
-                  transactionId,
-                  amountPaid,
-                  updatedAt: new Date().toISOString()
-                });
-                
-                toast({
-                  title: 'Invoice Updated',
-                  description: `Payment status updated to ${status}`,
-                  status: 'success',
-                  duration: 3000,
-                  isClosable: true,
-                });
-                
-                onCloseEditModal();
-              }}>
+              <Box as="form" id="edit-invoice-form" onSubmit={handlePaymentUpdate}>
                 <VStack spacing={4} align="stretch">
-                  <FormControl>
+                  <FormControl isInvalid={paymentFormErrors.paymentStatus}>
                     <FormLabel>Payment Status</FormLabel>
                     <Select 
                       name="paymentStatus"
@@ -2280,9 +2358,10 @@ const BillingTab = ({ patient }) => {
                       <option value="Partial">Partial Payment</option>
                       <option value="Paid">Paid</option>
                     </Select>
+                    {paymentFormErrors.paymentStatus && <FormErrorMessage>{paymentFormErrors.paymentStatus}</FormErrorMessage>}
                   </FormControl>
                   
-                  <FormControl>
+                  <FormControl isInvalid={paymentFormErrors.paymentMode}>
                     <FormLabel>Payment Mode</FormLabel>
                     <Select 
                       name="paymentMode"
@@ -2296,18 +2375,20 @@ const BillingTab = ({ patient }) => {
                       <option value="UPI">UPI</option>
                       <option value="Other">Other</option>
                     </Select>
+                    {paymentFormErrors.paymentMode && <FormErrorMessage>{paymentFormErrors.paymentMode}</FormErrorMessage>}
                   </FormControl>
                   
-                  <FormControl>
+                  <FormControl isInvalid={paymentFormErrors.transactionId}>
                     <FormLabel>Transaction ID (Optional)</FormLabel>
                     <Input 
                       name="transactionId"
                       defaultValue={selectedInvoice.transactionId || ''}
                       placeholder="Enter reference number"
                     />
+                    {paymentFormErrors.transactionId && <FormErrorMessage>{paymentFormErrors.transactionId}</FormErrorMessage>}
                   </FormControl>
                   
-                  <FormControl>
+                  <FormControl isInvalid={paymentFormErrors.amountPaid}>
                     <FormLabel>Amount Paid</FormLabel>
                     <Input 
                       name="amountPaid"
@@ -2317,6 +2398,7 @@ const BillingTab = ({ patient }) => {
                       max={selectedInvoice.total}
                       defaultValue={selectedInvoice.amountPaid || 0}
                     />
+                    {paymentFormErrors.amountPaid && <FormErrorMessage>{paymentFormErrors.amountPaid}</FormErrorMessage>}
                     <Text fontSize="sm" color="gray.500">
                       Total Invoice Amount: {formatCurrency(selectedInvoice.total)}
                     </Text>
@@ -2338,6 +2420,7 @@ const BillingTab = ({ patient }) => {
               colorScheme="brand" 
               type="submit"
               form="edit-invoice-form"
+              isLoading={isLoading}
             >
               Update Payment
             </Button>

@@ -75,5 +75,9 @@ class Invoice(Base):
     transaction_id = Column(String, nullable=True)
     amount_paid = Column(Float, default=0)
     balance = Column(Float, default=0)
+    notes = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    payment_history = Column(JSON, default=list)  # List of payment transactions with date, amount, mode
     
     patient = relationship("Patient", back_populates="invoices")

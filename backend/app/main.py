@@ -320,28 +320,102 @@ def create_invoice(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(auth.require_role(["admin", "clerk"]))
 ):
-    db_invoice = models.Invoice(
-        id=f"inv{uuid4().hex[:8]}",
-        **invoice.dict()
-    )
-    db.add(db_invoice)
-    db.commit()
-    db.refresh(db_invoice)
-    return db_invoice
+    try:
+        # Create a unique invoice ID
+        invoice_id = f"INV-{uuid4().hex[:8].upper()}"
+        
+        # Create the invoice object
+        invoice_dict = invoice.dict()
+        
+        # Add payment history if payment is made during creation
+        payment_history = []
+        if invoice.amount_paid > 0:
+            payment_history.append({
+                "date": datetime.utcnow().isoformat(),
+                "amount": invoice.amount_paid,
+                "mode": invoice.payment_mode,
+                "transaction_id": invoice.transaction_id,
+                "status": invoice.payment_status
+            })
+        
+        db_invoice = models.Invoice(
+            id=invoice_id,
+            **invoice_dict,
+            payment_history=payment_history
+        )
+        
+        db.add(db_invoice)
+        db.commit()
+        db.refresh(db_invoice)
+        return db_invoice
+    except Exception as e:
+        db.rollback()
+        print(f"Error creating invoice: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create invoice: {str(e)}")
 
 @app.get("/invoices/", response_model=List[schemas.Invoice])
 def read_invoices(
     patient_id: Optional[str] = None,
+    status: Optional[str] = None,
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None,
     skip: int = 0, 
     limit: int = 100, 
     db: Session = Depends(get_db),
     current_user: models.User = Depends(auth.get_current_active_user)
 ):
-    query = db.query(models.Invoice)
-    if patient_id:
-        query = query.filter(models.Invoice.patient_id == patient_id)
-    invoices = query.offset(skip).limit(limit).all()
-    return invoices
+    try:
+        query = db.query(models.Invoice)
+        
+        # Filter by patient ID if provided
+        if patient_id:
+            query = query.filter(models.Invoice.patient_id == patient_id)
+        
+        # Filter by payment status if provided
+        if status:
+            query = query.filter(models.Invoice.payment_status == status)
+        
+        # Filter by date range if provided
+        if from_date:
+            try:
+                from_date_obj = datetime.fromisoformat(from_date.replace('Z', '+00:00'))
+                query = query.filter(models.Invoice.date >= from_date_obj)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid from_date format. Use ISO format (YYYY-MM-DDTHH:MM:SS)")
+        
+        if to_date:
+            try:
+                to_date_obj = datetime.fromisoformat(to_date.replace('Z', '+00:00'))
+                query = query.filter(models.Invoice.date <= to_date_obj)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid to_date format. Use ISO format (YYYY-MM-DDTHH:MM:SS)")
+        
+        # Order by most recent first
+        query = query.order_by(models.Invoice.date.desc())
+        
+        # Apply pagination
+        invoices = query.offset(skip).limit(limit).all()
+        return invoices
+    except Exception as e:
+        print(f"Error fetching invoices: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch invoices: {str(e)}")
+
+@app.get("/invoices/{invoice_id}", response_model=schemas.Invoice)
+def read_invoice(
+    invoice_id: str,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_active_user)
+):
+    try:
+        db_invoice = db.query(models.Invoice).filter(models.Invoice.id == invoice_id).first()
+        if db_invoice is None:
+            raise HTTPException(status_code=404, detail="Invoice not found")
+        return db_invoice
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error fetching invoice {invoice_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch invoice: {str(e)}")
 
 @app.put("/invoices/{invoice_id}", response_model=schemas.Invoice)
 def update_invoice(
@@ -350,16 +424,154 @@ def update_invoice(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(auth.require_role(["admin", "clerk"]))
 ):
-    db_invoice = db.query(models.Invoice).filter(models.Invoice.id == invoice_id).first()
-    if db_invoice is None:
-        raise HTTPException(status_code=404, detail="Invoice not found")
-    
-    for field, value in invoice.dict().items():
-        setattr(db_invoice, field, value)
-    
-    db.commit()
-    db.refresh(db_invoice)
-    return db_invoice
+    try:
+        db_invoice = db.query(models.Invoice).filter(models.Invoice.id == invoice_id).first()
+        if db_invoice is None:
+            raise HTTPException(status_code=404, detail="Invoice not found")
+        
+        invoice_data = invoice.dict(exclude_unset=True)
+        
+        # Update the invoice attributes
+        for key, value in invoice_data.items():
+            if key != 'patient_id':  # Don't allow changing the patient
+                setattr(db_invoice, key, value)
+        
+        # Update the updated_at timestamp
+        db_invoice.updated_at = datetime.utcnow()
+        
+        # Update payment_history if this is a payment update
+        current_history = db_invoice.payment_history or []
+        if invoice.amount_paid != getattr(db_invoice, 'amount_paid', 0) and invoice.amount_paid > 0:
+            payment_entry = {
+                "date": datetime.utcnow().isoformat(),
+                "amount": invoice.amount_paid - getattr(db_invoice, 'amount_paid', 0),
+                "mode": invoice.payment_mode,
+                "transaction_id": invoice.transaction_id,
+                "status": invoice.payment_status
+            }
+            current_history.append(payment_entry)
+            db_invoice.payment_history = current_history
+        
+        db.commit()
+        db.refresh(db_invoice)
+        return db_invoice
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"Error updating invoice {invoice_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update invoice: {str(e)}")
+
+@app.patch("/invoices/{invoice_id}/payment", response_model=schemas.Invoice)
+def update_invoice_payment(
+    invoice_id: str,
+    payment_update: schemas.PaymentUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.require_role(["admin", "clerk"]))
+):
+    try:
+        db_invoice = db.query(models.Invoice).filter(models.Invoice.id == invoice_id).first()
+        if db_invoice is None:
+            raise HTTPException(status_code=404, detail="Invoice not found")
+        
+        # Validate payment amount
+        if payment_update.payment_status == "Paid" and payment_update.amount_paid < db_invoice.total:
+            raise HTTPException(
+                status_code=400, 
+                detail="For 'Paid' status, amount paid must equal or exceed the total invoice amount"
+            )
+            
+        if payment_update.payment_status == "Partial" and (payment_update.amount_paid <= 0 or payment_update.amount_paid >= db_invoice.total):
+            raise HTTPException(
+                status_code=400, 
+                detail="For 'Partial' status, amount paid must be greater than 0 and less than the total invoice amount"
+            )
+        
+        # Calculate payment difference
+        payment_difference = payment_update.amount_paid - db_invoice.amount_paid
+        
+        # Update invoice payment details
+        db_invoice.payment_status = payment_update.payment_status
+        db_invoice.payment_mode = payment_update.payment_mode
+        db_invoice.transaction_id = payment_update.transaction_id
+        db_invoice.amount_paid = payment_update.amount_paid
+        db_invoice.balance = db_invoice.total - payment_update.amount_paid
+        db_invoice.updated_at = datetime.utcnow()
+        
+        # Add to payment history
+        payment_history = db_invoice.payment_history or []
+        if payment_difference > 0:
+            payment_entry = {
+                "date": (payment_update.payment_date or datetime.utcnow()).isoformat(),
+                "amount": payment_difference,
+                "mode": payment_update.payment_mode,
+                "transaction_id": payment_update.transaction_id,
+                "status": payment_update.payment_status
+            }
+            payment_history.append(payment_entry)
+            db_invoice.payment_history = payment_history
+        
+        db.commit()
+        db.refresh(db_invoice)
+        return db_invoice
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"Error updating invoice payment {invoice_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update invoice payment: {str(e)}")
+
+@app.get("/invoices/reports/summary")
+def get_invoice_summary(
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.require_role(["admin", "clerk"]))
+):
+    try:
+        query = db.query(models.Invoice)
+        
+        # Filter by date range if provided
+        if from_date:
+            try:
+                from_date_obj = datetime.fromisoformat(from_date.replace('Z', '+00:00'))
+                query = query.filter(models.Invoice.date >= from_date_obj)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid from_date format")
+        
+        if to_date:
+            try:
+                to_date_obj = datetime.fromisoformat(to_date.replace('Z', '+00:00'))
+                query = query.filter(models.Invoice.date <= to_date_obj)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid to_date format")
+                
+        invoices = query.all()
+        
+        # Calculate summary
+        total_invoices = len(invoices)
+        total_amount = sum(invoice.total for invoice in invoices)
+        paid_amount = sum(invoice.amount_paid for invoice in invoices)
+        unpaid_amount = total_amount - paid_amount
+        
+        paid_invoices = len([inv for inv in invoices if inv.payment_status == "Paid"])
+        partial_invoices = len([inv for inv in invoices if inv.payment_status == "Partial"])
+        unpaid_invoices = len([inv for inv in invoices if inv.payment_status == "Unpaid"])
+        
+        return {
+            "total_invoices": total_invoices,
+            "total_amount": total_amount,
+            "paid_amount": paid_amount,
+            "unpaid_amount": unpaid_amount,
+            "paid_invoices": paid_invoices,
+            "partial_invoices": partial_invoices,
+            "unpaid_invoices": unpaid_invoices
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error getting invoice summary: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get invoice summary: {str(e)}")
 
 # Dashboard stats endpoints
 @app.get("/stats/dashboard")

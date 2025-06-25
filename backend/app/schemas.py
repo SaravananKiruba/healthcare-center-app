@@ -94,12 +94,23 @@ class InvoiceBase(BaseModel):
     transaction_id: Optional[str] = None
     amount_paid: float = 0
     balance: float = 0
+    notes: Optional[str] = None
 
 class InvoiceCreate(InvoiceBase):
     patient_id: str
 
+class PaymentUpdate(BaseModel):
+    payment_status: str
+    payment_mode: Optional[str] = None
+    transaction_id: Optional[str] = None
+    amount_paid: float
+    payment_date: Optional[datetime] = None
+
 class Invoice(InvoiceBase):
     id: str
     patient_id: str
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    payment_history: Optional[List[dict]] = None
 
     model_config = ConfigDict(from_attributes=True)

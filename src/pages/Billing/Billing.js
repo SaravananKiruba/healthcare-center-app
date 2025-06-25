@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Button,
@@ -19,15 +19,24 @@ import {
   TableContainer,
   Badge,
   Text,
-  Select,  HStack,
+  Select,  
+  HStack,
   Grid,
   GridItem,
   IconButton,
+  Spinner,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
+  MenuDivider,
   useToast,
+  Tooltip,
 } from '@chakra-ui/react';
 import { Link as RouterLink } from 'react-router-dom';
-import { FiSearch, FiPlus, FiFilter, FiDownload, FiEye, FiDollarSign } from 'react-icons/fi';
+import { FiSearch, FiPlus, FiFilter, FiDownload, FiEye, FiDollarSign, FiEdit, FiMoreVertical, FiRefreshCw, FiPrinter, FiCheckCircle, FiXCircle } from 'react-icons/fi';
 import { useAppContext } from '../../context/AppContext';
+import { invoicesAPI } from '../../services/api';
 
 const Billing = () => {
   const toast = useToast();
@@ -35,6 +44,16 @@ const Billing = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
+  const [isLoading, setIsLoading] = useState(false);
+  const [invoiceSummary, setInvoiceSummary] = useState({
+    totalInvoices: 0,
+    totalAmount: 0,
+    paidAmount: 0,
+    unpaidAmount: 0,
+    paidInvoices: 0,
+    partialInvoices: 0,
+    unpaidInvoices: 0
+  });
   
   // Collect all invoices from all patients
   const allInvoices = patients.reduce((acc, patient) => {
@@ -49,15 +68,23 @@ const Billing = () => {
     return acc;
   }, []);
   
+  // Sort invoices by date (newest first)
+  const sortedInvoices = [...allInvoices].sort((a, b) => {
+    return new Date(b.date) - new Date(a.date);
+  });
+  
   // Filter invoices
-  const filteredInvoices = allInvoices.filter(invoice => {
+  const filteredInvoices = sortedInvoices.filter(invoice => {
     // Filter by search query
     const matchesSearch = 
-      invoice.patientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      invoice.id.toLowerCase().includes(searchQuery.toLowerCase());    // Filter by payment status
+      (invoice.patientName?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+      (invoice.id?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+      (invoice.transactionId?.toLowerCase() || '').includes(searchQuery.toLowerCase());
+      
+    // Filter by payment status
     const matchesStatus = 
       statusFilter === 'all' || 
-      invoice.paymentStatus.toLowerCase() === statusFilter.toLowerCase();
+      (invoice.paymentStatus?.toLowerCase() === statusFilter.toLowerCase());
     
     // Filter by date (simplified for this demo)
     try {
@@ -93,7 +120,8 @@ const Billing = () => {
       return matchesSearch && matchesStatus;
     }
   });
-    // Format date for display
+  
+  // Format date for display
   const formatDate = (dateString) => {
     try {
       if (!dateString) return "N/A";
@@ -110,17 +138,51 @@ const Billing = () => {
     }
   };
   
+  // Format currency
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+    }).format(amount || 0);
+  };
+  
   // Calculate total amounts
-  const totalAmount = filteredInvoices.reduce((sum, invoice) => sum + invoice.total, 0);
+  const totalAmount = filteredInvoices.reduce((sum, invoice) => sum + (invoice.total || 0), 0);
   const paidAmount = filteredInvoices
     .filter(invoice => invoice.paymentStatus === 'Paid')
-    .reduce((sum, invoice) => sum + invoice.total, 0);
+    .reduce((sum, invoice) => sum + (invoice.total || 0), 0);
   const unpaidAmount = filteredInvoices
     .filter(invoice => invoice.paymentStatus === 'Unpaid')
-    .reduce((sum, invoice) => sum + invoice.total, 0);
+    .reduce((sum, invoice) => sum + (invoice.total || 0), 0);
   const partialAmount = filteredInvoices
     .filter(invoice => invoice.paymentStatus === 'Partial')
-    .reduce((sum, invoice) => sum + (invoice.total - (invoice.amountPaid || 0)), 0);
+    .reduce((sum, invoice) => sum + ((invoice.total - (invoice.amountPaid || 0)) || 0), 0);
+  
+  // Fetch invoice summary stats from the API
+  const fetchInvoiceSummary = async () => {
+    try {
+      setIsLoading(true);
+      const response = await invoicesAPI.getInvoiceSummary();
+      setInvoiceSummary(response.data);
+    } catch (error) {
+      console.error("Failed to fetch invoice summary:", error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load invoice statistics.',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Load summary on mount
+  useEffect(() => {
+    fetchInvoiceSummary();
+  }, []);
   
   // Handle mock invoice download
   const handleDownloadInvoice = (invoiceId) => {
@@ -135,6 +197,12 @@ const Billing = () => {
   
   return (
     <Box>
+      {isLoading && (
+        <Flex justify="center" my="4">
+          <Spinner size="lg" color="brand.500" />
+        </Flex>
+      )}
+      
       <Flex 
         direction={{ base: 'column', md: 'row' }} 
         justify="space-between" 
@@ -142,6 +210,24 @@ const Billing = () => {
         mb="6"
       >
         <Heading size="lg" mb={{ base: 4, md: 0 }}>Billing & Invoices</Heading>
+        <HStack>
+          <Tooltip label="Refresh statistics">
+            <IconButton 
+              icon={<FiRefreshCw />} 
+              onClick={fetchInvoiceSummary}
+              isLoading={isLoading}
+              aria-label="Refresh"
+            />
+          </Tooltip>
+          <Button 
+            as={RouterLink}
+            to="/patients"
+            colorScheme="brand" 
+            leftIcon={<FiPlus />}
+          >
+            New Invoice
+          </Button>
+        </HStack>
       </Flex>
       
       <Grid templateColumns={{ base: "repeat(1, 1fr)", md: "repeat(4, 1fr)" }} gap={6} mb="6">
@@ -157,7 +243,7 @@ const Billing = () => {
           <Card bg="green.50">
             <CardBody textAlign="center">
               <Text fontSize="sm" color="green.600" mb="1">Paid Amount</Text>
-              <Text fontSize="2xl" fontWeight="bold" color="green.600">${paidAmount}</Text>
+              <Text fontSize="2xl" fontWeight="bold" color="green.600">{formatCurrency(paidAmount)}</Text>
             </CardBody>
           </Card>
         </GridItem>
@@ -165,7 +251,7 @@ const Billing = () => {
           <Card bg="red.50">
             <CardBody textAlign="center">
               <Text fontSize="sm" color="red.600" mb="1">Unpaid Amount</Text>
-              <Text fontSize="2xl" fontWeight="bold" color="red.600">${unpaidAmount + partialAmount}</Text>
+              <Text fontSize="2xl" fontWeight="bold" color="red.600">{formatCurrency(unpaidAmount + partialAmount)}</Text>
             </CardBody>
           </Card>
         </GridItem>
@@ -173,7 +259,7 @@ const Billing = () => {
           <Card bg="purple.50">
             <CardBody textAlign="center">
               <Text fontSize="sm" color="purple.600" mb="1">Total Amount</Text>
-              <Text fontSize="2xl" fontWeight="bold" color="purple.600">${totalAmount}</Text>
+              <Text fontSize="2xl" fontWeight="bold" color="purple.600">{formatCurrency(totalAmount)}</Text>
             </CardBody>
           </Card>
         </GridItem>
@@ -266,7 +352,7 @@ const Billing = () => {
                         </Text>
                       </Td>
                       <Td display={{ base: 'none', md: 'table-cell' }}>{formatDate(invoice.date)}</Td>
-                      <Td isNumeric fontWeight="medium">${invoice.total}</Td>
+                      <Td isNumeric fontWeight="medium">{formatCurrency(invoice.total)}</Td>
                       <Td>
                         <Badge colorScheme={
                           invoice.paymentStatus === 'Paid' ? 'green' : 
@@ -277,30 +363,56 @@ const Billing = () => {
                       </Td>
                       <Td display={{ base: 'none', lg: 'table-cell' }}>{invoice.paymentMode || 'N/A'}</Td>
                       <Td>
-                        <HStack spacing="2">
-                          <IconButton
-                            aria-label="View invoice"
-                            icon={<FiEye />}
-                            size="sm"
+                        <Menu>
+                          <MenuButton
+                            as={IconButton}
                             variant="ghost"
-                          />
-                          <IconButton
-                            aria-label="Download invoice"
-                            icon={<FiDownload />}
                             size="sm"
-                            variant="ghost"
-                            onClick={() => handleDownloadInvoice(invoice.id)}
+                            icon={<FiMoreVertical />}
+                            aria-label="Actions"
                           />
-                          {invoice.paymentStatus !== 'Paid' && (
-                            <IconButton
-                              aria-label="Record payment"
-                              icon={<FiDollarSign />}
-                              size="sm"
-                              variant="ghost"
-                              colorScheme="green"
-                            />
-                          )}
-                        </HStack>
+                          <MenuList>
+                            <MenuItem 
+                              as={RouterLink} 
+                              to={`/patient/${invoice.patientId}`}
+                              icon={<FiEye />}
+                            >
+                              View Details
+                            </MenuItem>
+                            
+                            {invoice.paymentStatus !== 'Paid' && (
+                              <MenuItem
+                                as={RouterLink}
+                                to={`/billing/edit/${invoice.patientId}/${invoice.id}`}
+                                icon={<FiEdit />}
+                              >
+                                Update Payment
+                              </MenuItem>
+                            )}
+                            
+                            <MenuItem 
+                              icon={<FiPrinter />}
+                              onClick={() => {
+                                toast({
+                                  title: 'Print Invoice',
+                                  description: 'Print feature will be implemented soon.',
+                                  status: 'info',
+                                  duration: 3000,
+                                  isClosable: true
+                                });
+                              }}
+                            >
+                              Print Invoice
+                            </MenuItem>
+                            
+                            <MenuItem 
+                              icon={<FiDownload />}
+                              onClick={() => handleDownloadInvoice(invoice.id)}
+                            >
+                              Download PDF
+                            </MenuItem>
+                          </MenuList>
+                        </Menu>
                       </Td>
                     </Tr>
                   ))
