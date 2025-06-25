@@ -318,7 +318,7 @@ def read_treatments(
 def create_invoice(
     invoice: schemas.InvoiceCreate, 
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(auth.require_role(["admin", "clerk"]))
+    current_user: models.User = Depends(auth.require_role(["admin", "clerk", "doctor"]))
 ):
     try:
         # Create a unique invoice ID

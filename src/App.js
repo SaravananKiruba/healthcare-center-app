@@ -153,6 +153,14 @@ const AppContent = () => {
               </MainLayout>
             </ProtectedRoute>
           } />
+          
+          <Route path="/billing/edit/:patientId/:invoiceId" element={
+            <ProtectedRoute roles={['admin', 'clerk']} redirectTo="/dashboard" showAlert={false}>
+              <MainLayout>
+                <BillingForm />
+              </MainLayout>
+            </ProtectedRoute>
+          } />
 
           {/* Common routes for all authenticated users */}
           <Route path="/reports" element={

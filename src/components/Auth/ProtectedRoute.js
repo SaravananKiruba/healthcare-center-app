@@ -1,6 +1,6 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { Box, Alert, AlertIcon, AlertTitle, AlertDescription, Spinner, Center } from '@chakra-ui/react';
+import { Box, Alert, AlertIcon, AlertTitle, AlertDescription, Spinner, Center, Button, Text } from '@chakra-ui/react';
 import { useAuth } from '../../context/AuthContext';
 
 /**

@@ -2116,7 +2116,8 @@ const BillingTab = ({ patient }) => {
                               size="sm" 
                               variant="outline"
                               colorScheme="blue"
-                              onClick={() => handleEditInvoice(invoice)}
+                              as={RouterLink}
+                              to={`/billing/edit/${patient.id}/${invoice.id}`}
                             >
                               Edit
                             </Button>
