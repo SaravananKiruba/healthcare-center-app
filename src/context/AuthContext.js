@@ -26,8 +26,6 @@ export const AuthProvider = ({ children }) => {
         return '/admin-dashboard';
       case 'doctor':
         return '/doctor-dashboard';
-      case 'clerk':
-        return '/clerk-dashboard';
       default:
         return '/';
     }

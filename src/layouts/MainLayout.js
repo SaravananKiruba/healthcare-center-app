@@ -47,16 +47,15 @@ const Logo = () => {
 // Navigation items with role-based access
 const getNavItems = (userRole) => {
   const baseItems = [
-    { name: 'Dashboard', icon: FiHome, path: '/', roles: ['admin', 'doctor', 'clerk'] },
-    { name: 'Search', icon: FiSearch, path: '/search', roles: ['admin', 'doctor', 'clerk'] },
+    { name: 'Dashboard', icon: FiHome, path: '/', roles: ['admin', 'doctor'] },
+    { name: 'Search', icon: FiSearch, path: '/search', roles: ['admin', 'doctor'] },
   ];
 
   const roleBasedItems = [
-    { name: 'Patient Registration', icon: FiPlusCircle, path: '/patient/register', roles: ['admin', 'doctor', 'clerk'] },
-    { name: 'Patients', icon: FiUsers, path: '/patients', roles: ['admin', 'doctor', 'clerk'] },
-    { name: 'Billing', icon: FiDollarSign, path: '/billing', roles: ['admin', 'clerk'] },
-    { name: 'Reports', icon: FiBarChart2, path: '/reports', roles: ['admin', 'doctor', 'clerk'] },
-    { name: 'Settings', icon: FiSettings, path: '/settings', roles: ['admin'] },
+    { name: 'Patient Registration', icon: FiPlusCircle, path: '/patient/register', roles: ['admin', 'doctor'] },
+    { name: 'Patients', icon: FiUsers, path: '/patients', roles: ['admin', 'doctor'] },
+    { name: 'Reports', icon: FiBarChart2, path: '/reports', roles: ['admin', 'doctor'] },
+    { name: 'User Management', icon: FiSettings, path: '/user-management', roles: ['admin'] },
   ];
 
   return [
@@ -100,7 +99,7 @@ const NavItem = ({ icon, children, path, active }) => {
 const Sidebar = ({ isOpen, onClose }) => {
   const location = useLocation();
   const { user } = useAuth();
-  const navItems = getNavItems(user?.role || 'clerk');
+  const navItems = getNavItems(user?.role || 'doctor');
   
   return (
     <Box
@@ -206,7 +205,9 @@ const Header = ({ onOpen }) => {
           </MenuButton>
           <MenuList>
             <MenuItem icon={<FiUser />}>Profile</MenuItem>
-            <MenuItem icon={<FiSettings />} as={RouterLink} to="/settings">Settings</MenuItem>
+            {user?.role === 'admin' && (
+              <MenuItem icon={<FiSettings />} as={RouterLink} to="/user-management">User Management</MenuItem>
+            )}
             <MenuItem icon={<FiLogOut />} onClick={logout}>Sign out</MenuItem>
           </MenuList>
         </Menu>

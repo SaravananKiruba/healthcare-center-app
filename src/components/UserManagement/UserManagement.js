@@ -48,7 +48,7 @@ const UserManagement = () => {
     email: '',
     full_name: '',
     password: '',
-    role: 'clerk',
+    role: 'doctor',
   });
 
   const fetchUsers = useCallback(async () => {
@@ -132,7 +132,7 @@ const UserManagement = () => {
       email: '',
       full_name: '',
       password: '',
-      role: 'clerk',
+      role: 'doctor',
     });
     onClose();
   };
@@ -141,7 +141,6 @@ const UserManagement = () => {
     switch (role) {
       case 'admin': return 'red';
       case 'doctor': return 'green';
-      case 'clerk': return 'blue';
       default: return 'gray';
     }
   };
@@ -265,7 +264,6 @@ const UserManagement = () => {
                     value={formData.role}
                     onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                   >
-                    <option value="clerk">Clerk</option>
                     <option value="doctor">Doctor</option>
                     <option value="admin">Admin</option>
                   </Select>

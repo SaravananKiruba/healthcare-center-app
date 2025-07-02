@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { patientsAPI, investigationsAPI, treatmentsAPI, invoicesAPI } from '../services/api';
+import { patientsAPI, investigationsAPI } from '../services/api';
 import { useAuth } from './AuthContext';
 
 const AppContext = createContext();
@@ -19,18 +19,6 @@ export const AppProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   
-  // Services for billing
-  const [services] = useState([
-    { id: '1', name: 'Consultation', price: 50 },
-    { id: '2', name: 'Follow-up Visit', price: 30 },
-    { id: '3', name: 'Lab Test - Basic', price: 25 },
-    { id: '4', name: 'Lab Test - Comprehensive', price: 75 },
-    { id: '5', name: 'X-Ray', price: 100 },
-    { id: '6', name: 'Ultrasound', price: 120 },
-    { id: '7', name: 'Vaccination', price: 45 },
-    { id: '8', name: 'Prescription', price: 15 },
-  ]);
-  
   // User related data
   const [currentUser] = useState({
     id: '1',
@@ -43,7 +31,9 @@ export const AppProvider = ({ children }) => {
     { id: '1', name: 'Dr. John Doe', specialty: 'General Medicine' },
     { id: '2', name: 'Dr. Jane Smith', specialty: 'Pediatrics' },
     { id: '3', name: 'Dr. Robert Johnson', specialty: 'Orthopedics' },
-  ]);  // Get authentication state from AuthContext
+  ]);
+
+  // Get authentication state from AuthContext
   const { isAuthenticated } = useAuth();
   
   // Load patients data from API only if user is authenticated
@@ -72,6 +62,7 @@ export const AppProvider = ({ children }) => {
     
     fetchPatients();
   }, [isAuthenticated]); // Re-fetch when authentication state changes
+
   // Add a new patient
   const addPatient = async (patientData) => {
     setIsLoading(true);
@@ -96,14 +87,15 @@ export const AppProvider = ({ children }) => {
       setIsLoading(false);
     }
   };
-    // Delete a patient
+
+  // Delete a patient
   const deletePatient = async (patientId) => {
     setIsLoading(true);
     try {
       await patientsAPI.deletePatient(patientId);
       
       // Remove the patient from the state
-      setPatients(patients.filter(patient => patient.id !== patientId));
+      setPatients(prevPatients => prevPatients.filter(patient => patient.id !== patientId));
       setError(null);
     } catch (err) {
       console.error("Failed to delete patient:", err);
@@ -139,156 +131,47 @@ export const AppProvider = ({ children }) => {
       setIsLoading(false);
     }
   };
-  
-  // Add a new invoice
-  const addInvoice = async (patientId, invoiceData) => {
+
+  // Add a new investigation
+  const addInvestigation = async (patientId, investigationData) => {
     setIsLoading(true);
     try {
-      // Prepare data for API submission
       const apiData = {
-        ...invoiceData,
+        ...investigationData,
         patientId: patientId,
-        date: new Date(invoiceData.date).toISOString()
+        date: new Date(investigationData.date).toISOString()
       };
       
-      // Call the API
-      const response = await invoicesAPI.createInvoice(apiData);
-      const newInvoice = response.data;
+      const response = await investigationsAPI.createInvestigation(apiData);
+      const newInvestigation = response.data;
       
       // Update local state
       setPatients(prevPatients => prevPatients.map(patient => {
         if (patient.id === patientId) {
-          const invoices = patient.invoices || [];
+          const investigations = patient.investigations || [];
           return {
             ...patient,
-            invoices: [...invoices, newInvoice]
+            investigations: [...investigations, newInvestigation]
           };
         }
         return patient;
       }));
       
       setError(null);
-      return newInvoice.id;
-    } catch (err) {
-      console.error("Failed to add invoice:", err);
-      const errorMessage = err.response?.data?.detail || 
-                         err.message || 
-                         "Failed to add invoice";
-      setError(errorMessage);
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  // Update an existing invoice
-  const updateInvoice = async (patientId, invoiceId, invoiceData) => {
-    setIsLoading(true);
-    try {
-      // First, handle payment update if this is a payment status change
-      if ('paymentStatus' in invoiceData && !('items' in invoiceData)) {
-        // This is a payment update
-        const paymentData = {
-          paymentStatus: invoiceData.paymentStatus,
-          paymentMode: invoiceData.paymentMode,
-          transactionId: invoiceData.transactionId,
-          amountPaid: invoiceData.amountPaid,
-          paymentDate: new Date().toISOString()
-        };
-        
-        const response = await invoicesAPI.updatePayment(invoiceId, paymentData);
-        const updatedInvoice = response.data;
-        
-        // Update local state
-        setPatients(prevPatients => prevPatients.map(patient => {
-          if (patient.id === patientId) {
-            return {
-              ...patient,
-              invoices: (patient.invoices || []).map(invoice => 
-                invoice.id === invoiceId ? updatedInvoice : invoice
-              )
-            };
-          }
-          return patient;
-        }));
-        
-        setError(null);
-        return updatedInvoice;
-      } else {
-        // This is a full invoice update
-        const apiData = {
-          ...invoiceData,
-          patientId: patientId,
-          date: invoiceData.date ? new Date(invoiceData.date).toISOString() : new Date().toISOString()
-        };
-        
-        const response = await invoicesAPI.updateInvoice(invoiceId, apiData);
-        const updatedInvoice = response.data;
-        
-        // Update local state
-        setPatients(prevPatients => prevPatients.map(patient => {
-          if (patient.id === patientId) {
-            return {
-              ...patient,
-              invoices: (patient.invoices || []).map(invoice => 
-                invoice.id === invoiceId ? updatedInvoice : invoice
-              )
-            };
-          }
-          return patient;
-        }));
-        
-        setError(null);
-        return updatedInvoice;
-      }
-    } catch (err) {
-      console.error("Failed to update invoice:", err);
-      const errorMessage = err.response?.data?.detail || 
-                         err.message || 
-                         "Failed to update invoice";
-      setError(errorMessage);
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  // Add a new investigation
-  const addInvestigation = async (investigationData) => {
-    setIsLoading(true);
-    try {
-      const response = await investigationsAPI.createInvestigation(investigationData);
-      
-      // Update patient with the new investigation
-      const newInvestigation = response.data;
-      setPatients(prevPatients => {
-        return prevPatients.map(patient => {
-          if (patient.id === investigationData.patientId) {
-            const investigations = patient.investigations || [];
-            return {
-              ...patient,
-              investigations: [...investigations, newInvestigation]
-            };
-          }
-          return patient;
-        });
-      });
-      
-      setError(null);
       return newInvestigation;
     } catch (err) {
       console.error("Failed to add investigation:", err);
       const errorMessage = err.response?.data?.detail || 
-                           err.message || 
-                           "Failed to add investigation";
+                          err.message || 
+                          "Failed to add investigation";
       setError(errorMessage);
       throw err;
     } finally {
       setIsLoading(false);
     }
   };
-  
-  // Update an investigation
+
+  // Update an existing investigation
   const updateInvestigation = async (investigationId, patientId, investigationData) => {
     setIsLoading(true);
     try {
@@ -324,97 +207,25 @@ export const AppProvider = ({ children }) => {
       setIsLoading(false);
     }
   };
-  
-  // Add a new treatment
-  const addTreatment = async (treatmentData) => {
-    setIsLoading(true);
-    try {
-      const response = await treatmentsAPI.createTreatment(treatmentData);
-      
-      // Update patient with the new treatment
-      const newTreatment = response.data;
-      setPatients(prevPatients => {
-        return prevPatients.map(patient => {
-          if (patient.id === treatmentData.patientId) {
-            const treatments = patient.treatments || [];
-            return {
-              ...patient,
-              treatments: [...treatments, newTreatment]
-            };
-          }
-          return patient;
-        });
-      });
-      
-      setError(null);
-      return newTreatment;
-    } catch (err) {
-      console.error("Failed to add treatment:", err);
-      const errorMessage = err.response?.data?.detail || 
-                           err.message || 
-                           "Failed to add treatment";
-      setError(errorMessage);
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  // Update a treatment
-  const updateTreatment = async (treatmentId, patientId, treatmentData) => {
-    setIsLoading(true);
-    try {
-      // In a full implementation, this would call the API
-      // const response = await treatmentsAPI.updateTreatment(treatmentId, treatmentData);
-      
-      // For now, we're updating the state directly
-      const updatedTreatment = { id: treatmentId, ...treatmentData };
-      
-      setPatients(prevPatients => {
-        return prevPatients.map(patient => {
-          if (patient.id === patientId) {
-            const treatments = patient.treatments || [];
-            return {
-              ...patient,
-              treatments: treatments.map(tr => 
-                tr.id === treatmentId ? updatedTreatment : tr
-              )
-            };
-          }
-          return patient;
-        });
-      });
-      
-      setError(null);
-      return updatedTreatment;
-    } catch (err) {
-      console.error("Failed to update treatment:", err);
-      const errorMessage = typeof err === 'object' ? (err.message || "Failed to update treatment") : err;
-      setError(errorMessage);
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
+
   const value = {
+    // Data
     patients,
-    isLoading,
-    error,
-    addPatient,
-    updatePatient,
-    deletePatient,
-    services,
     doctors,
     currentUser,
-    addInvoice,
-    updateInvoice,
+    isLoading,
+    error,
+    
+    // Patient operations
+    addPatient,
+    deletePatient,
+    updatePatient,
+    
+    // Investigation operations
     addInvestigation,
     updateInvestigation,
-    addTreatment,
-    updateTreatment,
   };
-  
+
   return (
     <AppContext.Provider value={value}>
       {children}
@@ -422,4 +233,3 @@ export const AppProvider = ({ children }) => {
   );
 };
 
-export default AppContext;

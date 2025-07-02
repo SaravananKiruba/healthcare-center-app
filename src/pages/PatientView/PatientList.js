@@ -234,14 +234,7 @@ const PatientList = () => {
                               View Details
                             </MenuItem>
                             <MenuItem icon={<FiEdit />}>Edit Patient</MenuItem>
-                            <MenuItem 
-                              as={RouterLink} 
-                              to={`/billing/new/${patient.id}`}
-                              icon={<FiDollarSign />}
-                            >
-                              Create Invoice
-                            </MenuItem>
-                            <MenuItem icon={<FiFileText />}>Add Treatment</MenuItem>
+
                             {canDelete && (
                               <MenuItem 
                                 icon={<FiTrash2 />} 
@@ -283,8 +276,7 @@ const PatientList = () => {
 
             <AlertDialogBody>
               Are you sure you want to delete <strong>{patientToDelete?.name}</strong>? 
-              This action cannot be undone and will remove all their records, 
-              treatments, and invoices.
+              This action cannot be undone and will remove all their records.
             </AlertDialogBody>
 
             <AlertDialogFooter>

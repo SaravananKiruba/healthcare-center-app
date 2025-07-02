@@ -61,20 +61,6 @@ def init_db():
                 )
                 db.add(doctor_user)
                 print("Doctor user created!")
-                
-            # Create clerk user
-            clerk_user = db.query(models.User).filter(models.User.email == "clerk@healthcare.com").first()
-            if not clerk_user:
-                clerk_user = models.User(
-                    id=f"u{uuid4().hex[:8]}",
-                    email="clerk@healthcare.com",
-                    hashed_password=get_password_hash("clerk123"),
-                    full_name="Billing Clerk",
-                    role="clerk",
-                    is_active=True
-                )
-                db.add(clerk_user)
-                print("Clerk user created!")
             
             # Create sample patients
             existing_patients = db.query(models.Patient).count()

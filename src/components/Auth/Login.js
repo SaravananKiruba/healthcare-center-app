@@ -167,7 +167,6 @@ const Login = () => {
               <Text fontWeight="bold" mb={1}>Default Credentials:</Text>
               <Text>Admin: admin@healthcare.com / admin123</Text>
               <Text>Doctor: doctor@healthcare.com / doctor123</Text>
-              <Text>Clerk: clerk@healthcare.com / clerk123</Text>
             </Box>
             <Text color="gray.600" fontSize="sm">
               Sign in to your account

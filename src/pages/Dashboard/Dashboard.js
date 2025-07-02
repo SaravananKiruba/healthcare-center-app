@@ -13,8 +13,7 @@ import {
   useColorModeValue,
 } from '@chakra-ui/react';
 import { 
-  FiUsers, 
-  FiDollarSign, 
+  FiUsers,
 } from 'react-icons/fi';
 import { useAppContext } from '../../context/AppContext';
 
@@ -89,41 +88,13 @@ const Dashboard = () => {
     }
   });
   
-  // Calculate today's payments
-  const todaysPayments = patients.reduce((total, patient) => {
-    const todaysInvoices = patient.invoices?.filter((invoice) => {
-      try {
-        if (!invoice.date) return false;
-        const invoiceDate = new Date(invoice.date).toISOString().split('T')[0];
-        return invoiceDate === todayISO;
-      } catch (error) {
-        return false;
-      }
-    }) || [];
-    
-    return total + todaysInvoices.reduce((sum, invoice) => sum + invoice.total, 0);
-  }, 0);
-  
-  // Calculate this month's payments
-  const thisMonthPayments = patients.reduce((total, patient) => {
-    const thisMonthInvoices = patient.invoices?.filter((invoice) => {
-      try {
-        if (!invoice.date) return false;
-        const invoiceDate = new Date(invoice.date);
-        return invoiceDate >= firstDayOfMonth && invoiceDate <= today;
-      } catch (error) {
-        return false;
-      }
-    }) || [];
-    
-    return total + thisMonthInvoices.reduce((sum, invoice) => sum + invoice.total, 0);
-  }, 0);
+  // No payment calculations needed
   
   return (
     <Box>
       <Heading size="lg" mb="6">Dashboard</Heading>
       
-      <SimpleGrid columns={{ base: 1, md: 2, lg: 2 }} spacing={{ base: 5, lg: 8 }}>
+      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={{ base: 5, lg: 8 }}>
         <StatCard
           title="Total Patients Today"
           stat={todaysPatients.length}
@@ -135,18 +106,6 @@ const Dashboard = () => {
           stat={thisMonthPatients.length}
           icon={FiUsers}
           accentColor="blue.500"
-        />
-        <StatCard
-          title="Total Payments Today"
-          stat={`₹${todaysPayments}`}
-          icon={FiDollarSign}
-          accentColor="green.500"
-        />
-        <StatCard
-          title="Total Payments This Month"
-          stat={`₹${thisMonthPayments}`}
-          icon={FiDollarSign}
-          accentColor="purple.500"
         />
       </SimpleGrid>
     </Box>

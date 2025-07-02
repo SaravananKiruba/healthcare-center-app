@@ -13,11 +13,8 @@ import Dashboard from './pages/Dashboard/Dashboard';
 import PatientRegistration from './pages/PatientRegistration/PatientRegistration';
 import PatientList from './pages/PatientView/PatientList';
 import PatientView from './pages/PatientView/PatientView';
-import Billing from './pages/Billing/Billing';
-import BillingForm from './pages/Billing/BillingForm';
 import Reports from './pages/Reports/Reports';
 import Search from './pages/Search/Search';
-import Settings from './pages/Settings/Settings';
 import NotFound from './pages/NotFound';
 import UserManagement from './components/UserManagement/UserManagement';
 
@@ -78,14 +75,6 @@ const AppContent = () => {
             </ProtectedRoute>
           } />
 
-          <Route path="/clerk-dashboard" element={
-            <ProtectedRoute roles={['clerk']} redirectTo="/" showAlert={false}>
-              <MainLayout>
-                <Dashboard />
-              </MainLayout>
-            </ProtectedRoute>
-          } />
-
           {/* General authenticated routes */}
           <Route path="/dashboard" element={
             <ProtectedRoute redirectTo="/" showAlert={false}>
@@ -96,15 +85,7 @@ const AppContent = () => {
           } />
 
           {/* Admin-only routes */}
-          <Route path="/settings" element={
-            <ProtectedRoute roles={['admin']} redirectTo="/dashboard" showAlert={false}>
-              <MainLayout>
-                <Settings />
-              </MainLayout>
-            </ProtectedRoute>
-          } />
-
-          <Route path="/users" element={
+          <Route path="/user-management" element={
             <ProtectedRoute roles={['admin']} redirectTo="/dashboard" showAlert={false}>
               <MainLayout>
                 <UserManagement />
@@ -112,9 +93,9 @@ const AppContent = () => {
             </ProtectedRoute>
           } />
 
-          {/* Routes for admin, doctor, clerk */}
+          {/* Routes for admin, doctor */}
           <Route path="/patient/register" element={
-            <ProtectedRoute roles={['admin', 'doctor', 'clerk']} redirectTo="/dashboard" showAlert={false}>
+            <ProtectedRoute roles={['admin', 'doctor']} redirectTo="/dashboard" showAlert={false}>
               <MainLayout>
                 <PatientRegistration />
               </MainLayout>
@@ -133,31 +114,6 @@ const AppContent = () => {
             <ProtectedRoute redirectTo="/" showAlert={false}>
               <MainLayout>
                 <PatientView />
-              </MainLayout>
-            </ProtectedRoute>
-          } />
-
-          {/* Billing routes - admin and clerk only */}
-          <Route path="/billing" element={
-            <ProtectedRoute roles={['admin', 'clerk']} redirectTo="/dashboard" showAlert={false}>
-              <MainLayout>
-                <Billing />
-              </MainLayout>
-            </ProtectedRoute>
-          } />
-
-          <Route path="/billing/new/:patientId" element={
-            <ProtectedRoute roles={['admin', 'clerk']} redirectTo="/dashboard" showAlert={false}>
-              <MainLayout>
-                <BillingForm />
-              </MainLayout>
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/billing/edit/:patientId/:invoiceId" element={
-            <ProtectedRoute roles={['admin', 'clerk']} redirectTo="/dashboard" showAlert={false}>
-              <MainLayout>
-                <BillingForm />
               </MainLayout>
             </ProtectedRoute>
           } />
