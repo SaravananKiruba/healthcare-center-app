@@ -24,7 +24,7 @@ import {
     transformIfNeeded 
 } from '../utils/dataTransform';
 
-const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000'; // Will point to EC2 in production
 
 // Create a token refreshing mechanism
 let isRefreshing = false;
