@@ -120,6 +120,15 @@ export const AppProvider = ({ children }) => {
       throw new Error('Valid patient data is required');
     }
 
+    // Additional validation for required fields
+    if (!patientData.mobileNumber) {
+      throw new Error('Mobile number is required');
+    }
+    
+    if (!patientData.chiefComplaints) {
+      throw new Error('Chief complaints are required');
+    }
+
     setIsLoading(true);
     setError(null);
     

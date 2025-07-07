@@ -16,6 +16,26 @@ const BASE_URL = process.env.NODE_ENV === 'production'
   ? process.env.NEXT_PUBLIC_API_URL || 'https://your-app.vercel.app'
   : 'http://localhost:3000';
 
+// Helper function to transform JSON string fields to objects
+const transformJsonFields = (item) => {
+  if (!item || typeof item !== 'object') return item;
+  
+  const result = { ...item };
+  
+  // These fields should be objects, not JSON strings
+  ['medicalHistory', 'physicalGenerals', 'menstrualHistory', 'foodAndHabit'].forEach(field => {
+    if (result[field] && typeof result[field] === 'string') {
+      try {
+        result[field] = JSON.parse(result[field]);
+      } catch (e) {
+        console.log(`Could not parse ${field} as JSON:`, e);
+      }
+    }
+  });
+  
+  return result;
+};
+
 // Create axios instance with enhanced configuration
 const api = axios.create({
   baseURL: `${BASE_URL}/api`,
@@ -34,9 +54,18 @@ const handleApiError = (error) => {
     // Server responded with error status
     const { status, data } = error.response;
     
+    // For debugging validation errors
+    if (status === 400 && data.details) {
+      console.error('Validation error details:', data.details);
+    }
+    
     switch (status) {
       case 400:
-        throw new Error(data.message || 'Invalid request data');
+        // Create a more detailed error for validation failures
+        const errorMsg = data.details 
+          ? `${data.message}: ${data.details}`
+          : (data.message || 'Invalid request data');
+        throw new Error(errorMsg);
       case 401:
         throw new Error('Authentication required. Please log in again.');
       case 403:
@@ -91,19 +120,46 @@ api.interceptors.request.use(
         // Handle nested JSON objects that might be strings
         const processedData = { ...config.data };
         
-        // Ensure these fields are properly serialized for the API
+        // Log for debugging
+        console.log('Request payload before processing:', processedData);
+        
+        // Ensure required fields are present and properly formatted
+        if (config.url?.includes('/patients') && (config.method === 'post' || config.method === 'put')) {
+          // Check required fields
+          if (!processedData.mobileNumber) {
+            console.warn('Mobile number missing in request payload');
+            // Set a default to prevent undefined errors
+            processedData.mobileNumber = processedData.mobileNumber || '';
+          }
+          if (!processedData.chiefComplaints) {
+            console.warn('Chief complaints missing in request payload');
+            // Set a default to prevent undefined errors
+            processedData.chiefComplaints = processedData.chiefComplaints || '';
+          }
+        }
+        
+        // Ensure these fields are properly handled for the API
         ['medicalHistory', 'physicalGenerals', 'menstrualHistory', 'foodAndHabit'].forEach(field => {
-          if (processedData[field] && typeof processedData[field] === 'string') {
-            try {
-              processedData[field] = JSON.parse(processedData[field]);
-            } catch (e) {
-              // If it's already a valid JSON object, this will fail, which is fine
-              console.log(`Field ${field} is already parsed or not valid JSON`);
+          if (processedData[field]) {
+            // If it's already an object, stringify it for storage
+            if (typeof processedData[field] === 'object') {
+              processedData[field] = JSON.stringify(processedData[field]);
+            } else if (typeof processedData[field] === 'string') {
+              // Check if it's already valid JSON string
+              try {
+                JSON.parse(processedData[field]);
+                // It's already a valid JSON string, leave it as is
+              } catch (e) {
+                // It's a string but not valid JSON, convert to JSON string
+                processedData[field] = JSON.stringify(processedData[field]);
+              }
             }
           }
         });
         
-        config.data = camelToSnakeCase(processedData);
+        // Skip camelToSnakeCase transformation for this specific API to prevent field name issues
+        // The backend uses camelCase field names already
+        config.data = processedData;
       }
       
       // Transform URL parameters from camelCase to snake_case
@@ -125,18 +181,27 @@ api.interceptors.request.use(
 // Enhanced response interceptor
 api.interceptors.response.use(
   (response) => {
-    // Transform response data from snake_case to camelCase
+    // Skip transformation since we're already using camelCase consistently
+    // Parse any JSON strings that should be objects in the response
     if (response.data) {
-      response.data = snakeToCamelCase(response.data);
+      if (Array.isArray(response.data)) {
+        // Handle array responses
+        response.data = response.data.map(item => {
+          return transformJsonFields(item);
+        });
+      } else {
+        // Handle single object responses
+        response.data = transformJsonFields(response.data);
+      }
     }
     return response;
   },
   async (error) => {
     const config = error.config;
     
-    // Transform error response data from snake_case to camelCase
+    // Skip transformation for error responses too
     if (error.response && error.response.data) {
-      error.response.data = snakeToCamelCase(error.response.data);
+      error.response.data = error.response.data;
     }
     
     // Retry logic for network errors and 5xx errors
@@ -183,18 +248,44 @@ export const patientsAPI = {
       throw new Error('Valid patient data is required');
     }
     
+    // Make a copy of data to avoid modifying the original
+    const processedData = {...data};
+    
+    // Ensure these fields have non-empty values
+    processedData.mobileNumber = processedData.mobileNumber?.toString().trim() || '';
+    processedData.chiefComplaints = processedData.chiefComplaints?.toString().trim() || '';
+    
     // Log the input data for debugging
-    debugLog('Creating Patient - Input Data', data, 'info');
+    debugLog('Creating Patient - Input Data', processedData, 'info');
     
     // Validate required fields before sending to API
-    if (!data.name) throw new Error('Patient name is required');
-    if (!data.address) throw new Error('Address is required');
-    if (!data.age) throw new Error('Age is required');
-    if (!data.sex) throw new Error('Sex is required');
-    if (!data.mobileNumber) throw new Error('Mobile number is required');
-    if (!data.chiefComplaints) throw new Error('Chief complaints are required');
+    if (!processedData.name) throw new Error('Patient name is required');
+    if (!processedData.address) throw new Error('Address is required');
+    if (processedData.age === undefined || processedData.age === null || isNaN(parseInt(processedData.age)))
+      throw new Error('Valid age is required');
+    if (!processedData.sex) throw new Error('Sex is required');
+    if (!processedData.mobileNumber) throw new Error('Mobile number is required');
+    if (!processedData.chiefComplaints) throw new Error('Chief complaints are required');
+    
+    // Extra debug for these critical fields
+    console.log('Critical fields check before API call:', {
+      mobileNumber: processedData.mobileNumber,
+      chiefComplaints: processedData.chiefComplaints
+    });
     
     try {
+      // Fetch the current user's information first to get their ID
+      let currentUser = null;
+      try {
+        // Get current user from the API (to get the ID for association)
+        const userResponse = await axios.get(`${BASE_URL}/api/users/me`);
+        currentUser = userResponse.data;
+        debugLog('Current user fetched for patient creation', { userId: currentUser.id }, 'info');
+      } catch (userError) {
+        console.error('Failed to fetch current user for patient creation:', userError);
+        throw new Error('Unable to create patient: Authentication required');
+      }
+      
       // Create default objects for JSON fields
       const defaultMedicalHistory = {
         pastHistory: {
@@ -218,25 +309,42 @@ export const patientsAPI = {
         addictions: ''
       };
       
-      const defaultMenstrualHistory = data.sex === 'Female' ? {
+      const defaultMenstrualHistory = processedData.sex === 'Female' ? {
         menses: '', menopause: 'No', leucorrhoea: '',
         gonorrhea: 'No', otherDischarges: ''
       } : null;
       
       // Ensure JSON fields are properly structured and have default values
       const sanitizedData = {
-        ...data,
-        medicalHistory: data.medicalHistory || defaultMedicalHistory,
-        physicalGenerals: data.physicalGenerals || defaultPhysicalGenerals,
-        foodAndHabit: data.foodAndHabit || defaultFoodAndHabit,
+        // Base data
+        name: processedData.name.trim(),
+        guardianName: processedData.guardianName?.trim() || null,
+        address: processedData.address.trim(),
+        age: parseInt(processedData.age),
+        sex: processedData.sex,
+        occupation: processedData.occupation?.trim() || '',
+        // These fields are critical and often failing
+        mobileNumber: processedData.mobileNumber.trim(),
+        chiefComplaints: processedData.chiefComplaints.trim(),
+        // Add the user ID from current user - critical for the relation
+        userId: currentUser.id,
+        // Ensure JSON fields are properly structured - already objects, will be stringified in interceptor
+        medicalHistory: processedData.medicalHistory || defaultMedicalHistory,
+        physicalGenerals: processedData.physicalGenerals || defaultPhysicalGenerals,
+        foodAndHabit: processedData.foodAndHabit || defaultFoodAndHabit,
         // Only include menstrualHistory for female patients
-        menstrualHistory: data.sex === 'Female' ? (data.menstrualHistory || defaultMenstrualHistory) : null
+        menstrualHistory: processedData.sex === 'Female' ? (processedData.menstrualHistory || defaultMenstrualHistory) : null
       };
       
       // Log the sanitized data for debugging
       debugLog('Creating Patient - Sanitized Data', sanitizedData, 'info');
       
-      const response = await api.post('/patients', sanitizedData);
+      // Use direct axios call to bypass interceptors for this critical operation
+      const response = await axios.post(`${BASE_URL}/api/patients`, sanitizedData, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
       
       // Log the success response
       debugLog('Patient Created Successfully', response.data, 'info');
@@ -246,12 +354,28 @@ export const patientsAPI = {
       // Log the error with detailed information
       debugLog('Failed to create patient', error, 'error');
       
-      const errorMessage = error.response?.data?.message || error.message || 'Failed to create patient';
-      const errorDetails = error.response?.data?.details || '';
+      // Enhanced error handling
+      let errorMessage = 'Failed to create patient';
+      let errorDetails = '';
+      
+      if (error.response) {
+        errorMessage = error.response.data?.message || errorMessage;
+        errorDetails = error.response.data?.details || '';
+        
+        // Log full error details
+        debugLog('API Error Response', {
+          status: error.response.status,
+          statusText: error.response.statusText,
+          data: error.response.data
+        }, 'error');
+      } else if (error.request) {
+        errorMessage = 'Network error - no response received';
+        debugLog('API Request Error', error.request, 'error');
+      } else {
+        errorMessage = error.message || errorMessage;
+      }
       
       debugLog('API Error Details', {
-        status: error.response?.status,
-        data: error.response?.data,
         message: errorMessage,
         details: errorDetails,
         request: error.config?.data ? JSON.parse(error.config.data) : null
@@ -319,8 +443,31 @@ export const investigationsAPI = {
       throw new Error('Valid investigation data is required');
     }
     
+    // Validate required fields before sending
+    if (!data.patientId) throw new Error('Patient ID is required');
+    if (!data.type) throw new Error('Investigation type is required');
+    if (!data.details) throw new Error('Details are required');
+    if (!data.date) throw new Error('Date is required');
+    
     try {
-      const response = await api.post('/investigations', data);
+      // Use direct axios for critical operations
+      const sanitizedData = {
+        patientId: data.patientId,
+        type: data.type,
+        details: data.details,
+        date: data.date instanceof Date ? data.date.toISOString() : data.date,
+        fileUrl: data.fileUrl || null
+      };
+      
+      console.log('Creating investigation with data:', sanitizedData);
+      
+      // Use direct axios call to bypass interceptors for this critical operation
+      const response = await axios.post(`${BASE_URL}/api/investigations`, sanitizedData, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
       return response.data;
     } catch (error) {
       console.error('Failed to create investigation:', error);

@@ -45,21 +45,23 @@ const PatientRegistration = () => {
   const [registeredPatientId, setRegisteredPatientId] = useState(null);
   const [formError, setFormError] = useState(null);
 
-  // Form validation schema
+  // Enhanced form validation schema
   const validationSchema = Yup.object({
-    name: Yup.string().required('Patient name is required'),
-    guardianName: Yup.string(),
-    address: Yup.string().required('Address is required'),
+    name: Yup.string().trim().required('Patient name is required'),
+    guardianName: Yup.string().trim(),
+    address: Yup.string().trim().required('Address is required'),
     age: Yup.number()
+      .typeError('Age must be a number')
       .required('Age is required')
       .positive('Age must be positive')
       .integer('Age must be a whole number'),
     sex: Yup.string().required('Sex is required'),
-    occupation: Yup.string(),
+    occupation: Yup.string().trim(),
     mobileNumber: Yup.string()
+      .trim()
       .matches(/^[0-9-+()\\s]+$/, 'Invalid phone number')
       .required('Mobile number is required'),
-    chiefComplaints: Yup.string().required('Chief complaints are required'),
+    chiefComplaints: Yup.string().trim().required('Chief complaints are required'),
   });
 
   // Formik form handling
@@ -74,21 +76,49 @@ const PatientRegistration = () => {
       mobileNumber: '',
       chiefComplaints: '',
     },
-    validationSchema,    onSubmit: async (values) => {
+    validationSchema,
+    onSubmit: async (values) => {
       try {
         // Clear any previous errors
         setFormError(null);
         
-        // Now we can send the data as is since our API interceptor will handle the conversion
+        // Validate form manually to ensure all fields are correct
+        await validationSchema.validate(values, { abortEarly: false });
+        
+        // Force trim values to ensure no whitespace issues
+        values.mobileNumber = values.mobileNumber ? values.mobileNumber.trim() : '';
+        values.chiefComplaints = values.chiefComplaints ? values.chiefComplaints.trim() : '';
+        
+        // Extra validation for the fields that are failing
+        if (!values.mobileNumber) {
+          throw new Error('Mobile number is required');
+        }
+        
+        if (!values.chiefComplaints) {
+          throw new Error('Chief complaints are required');
+        }
+        
+        // Log validation success for debugging
+        console.log('Form validation passed. Required fields:', {
+          mobileNumber: values.mobileNumber,
+          chiefComplaints: values.chiefComplaints
+        });
+        
+        // Ensure we explicitly set all required fields
+        // Create a data object with explicit formatting
         const newPatientData = {
-          name: values.name,
-          guardianName: values.guardianName,
-          address: values.address,
+          name: values.name.trim(),
+          guardianName: values.guardianName?.trim() || null,
+          address: values.address.trim(),
           age: parseInt(values.age),
           sex: values.sex,
-          occupation: values.occupation || '',
-          mobileNumber: values.mobileNumber,
-          chiefComplaints: values.chiefComplaints,
+          occupation: values.occupation?.trim() || '',
+          
+          // CRITICAL FIX: Ensure these fields are explicitly set with string values
+          mobileNumber: String(values.mobileNumber), // Force string type
+          chiefComplaints: String(values.chiefComplaints), // Force string type
+          
+          // Provide default objects for additional fields
           medicalHistory: {
             pastHistory: {
               allergy: false,
@@ -132,6 +162,16 @@ const PatientRegistration = () => {
           }
         };
 
+        console.log('Submitting patient data:', newPatientData);
+        console.log('Critical fields check:', {
+          mobileNumber: newPatientData.mobileNumber,
+          chiefComplaints: newPatientData.chiefComplaints,
+          mobileNumberType: typeof newPatientData.mobileNumber,
+          chiefComplaintsType: typeof newPatientData.chiefComplaints,
+          mobileNumberLength: newPatientData.mobileNumber.length,
+          chiefComplaintsLength: newPatientData.chiefComplaints.length
+        });
+
         // Add the patient to the context
         const result = await addPatient(newPatientData);
         setRegisteredPatientId(result.id);
@@ -147,8 +187,16 @@ const PatientRegistration = () => {
         onOpen(); // Open the success modal
       } catch (error) {
         console.error("Error registering patient:", error);
-        const errorMessage = error.response?.data?.message || error.message || 'Could not register patient';
-        const errorDetails = error.response?.data?.details || '';
+        // Enhanced error handling
+        let errorMessage = 'Could not register patient';
+        let errorDetails = '';
+        
+        if (error.response) {
+          errorMessage = error.response.data?.message || errorMessage;
+          errorDetails = error.response.data?.details || '';
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
         
         console.log('Registration error details:', {
           message: errorMessage,
@@ -188,7 +236,16 @@ const PatientRegistration = () => {
           <Heading size="md">Patient & Case Record</Heading>
         </CardHeader>
         <CardBody>
-          <form onSubmit={formik.handleSubmit}>
+          <Alert status="info" mb={4}>
+            <AlertIcon />
+            <Box>
+              <Text fontWeight="bold">Form Instructions</Text>
+              <Text fontSize="sm">
+                All fields marked with * are required. Make sure to fill in the Mobile Number and Chief Complaints fields.
+              </Text>
+            </Box>
+          </Alert>
+          <form onSubmit={formik.handleSubmit} noValidate>
             <VStack spacing="6" align="stretch">
               <Grid templateColumns={{ base: "1fr", md: "repeat(2, 1fr)" }} gap={6}>
                 <GridItem>
@@ -270,12 +327,29 @@ const PatientRegistration = () => {
                 </GridItem>
 
                 <GridItem>
-                  <FormControl isInvalid={formik.touched.mobileNumber && formik.errors.mobileNumber}>
-                    <FormLabel>Mobile Number</FormLabel>
+                  <FormControl 
+                    isRequired={true}
+                    isInvalid={formik.touched.mobileNumber && formik.errors.mobileNumber}
+                  >
+                    <FormLabel>Mobile Number *</FormLabel>
                     <Input 
                       name="mobileNumber" 
                       placeholder="Enter contact number"
-                      {...formik.getFieldProps('mobileNumber')}
+                      value={formik.values.mobileNumber}
+                      onChange={(e) => {
+                        // Direct validation before setting value
+                        const value = e.target.value;
+                        if (value && value.trim() !== '') {
+                          formik.setFieldValue('mobileNumber', value);
+                        } else {
+                          // Don't allow empty values
+                          formik.setFieldValue('mobileNumber', value, false);
+                          formik.setFieldError('mobileNumber', 'Mobile number is required');
+                        }
+                      }}
+                      onBlur={formik.handleBlur}
+                      aria-required="true"
+                      required
                     />
                     <FormErrorMessage>{formik.errors.mobileNumber}</FormErrorMessage>
                   </FormControl>
@@ -283,13 +357,30 @@ const PatientRegistration = () => {
 
                 <GridItem colSpan={{ base: 1, md: 2 }}>
                   <Divider my="2" />
-                  <FormControl isInvalid={formik.touched.chiefComplaints && formik.errors.chiefComplaints}>
-                    <FormLabel>Chief Complaints</FormLabel>
+                  <FormControl 
+                    isRequired={true}
+                    isInvalid={formik.touched.chiefComplaints && formik.errors.chiefComplaints}
+                  >
+                    <FormLabel>Chief Complaints *</FormLabel>
                     <Textarea 
                       name="chiefComplaints" 
                       placeholder="Describe the main symptoms or complaints"
                       rows={4}
-                      {...formik.getFieldProps('chiefComplaints')}
+                      value={formik.values.chiefComplaints}
+                      onChange={(e) => {
+                        // Direct validation before setting value
+                        const value = e.target.value;
+                        if (value && value.trim() !== '') {
+                          formik.setFieldValue('chiefComplaints', value);
+                        } else {
+                          // Don't allow empty values
+                          formik.setFieldValue('chiefComplaints', value, false);
+                          formik.setFieldError('chiefComplaints', 'Chief complaints are required');
+                        }
+                      }}
+                      onBlur={formik.handleBlur}
+                      aria-required="true"
+                      required
                     />
                     <FormErrorMessage>{formik.errors.chiefComplaints}</FormErrorMessage>
                   </FormControl>
@@ -319,7 +410,22 @@ const PatientRegistration = () => {
                 </Alert>
               )}
               
-              <HStack justify="flex-end" pt="4">
+              <HStack justify="flex-end" pt="4" spacing={4}>
+                {/* Debug button to manually check form values */}
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    console.log('Current form values:', formik.values);
+                    console.log('Form validation status:', {
+                      isValid: formik.isValid,
+                      errors: formik.errors,
+                      touched: formik.touched
+                    });
+                    alert('Form values logged to console for debugging');
+                  }}
+                >
+                  Debug Form
+                </Button>
                 <Button 
                   type="submit" 
                   colorScheme="brand" 

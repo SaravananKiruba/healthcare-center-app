@@ -64,12 +64,39 @@ export default async function handler(req, res) {
 
       case 'POST':
         const { patientId: newPatientId, type, details, date, fileUrl } = req.body;
+        
+        console.log('Investigation POST request received:', req.body);
 
-        // Validate required fields
-        if (!newPatientId || !type || !details || !date) {
+        // Validate required fields with better error handling
+        if (!newPatientId) {
           return res.status(400).json({ 
-            error: 'Missing required fields',
-            details: 'patientId, type, details, and date are required'
+            error: 'Missing required field',
+            message: 'Patient ID is required',
+            details: 'The patientId field is missing or invalid'
+          });
+        }
+        
+        if (!type) {
+          return res.status(400).json({ 
+            error: 'Missing required field',
+            message: 'Investigation type is required',
+            details: 'The type field is missing or invalid'
+          });
+        }
+        
+        if (!details) {
+          return res.status(400).json({ 
+            error: 'Missing required field',
+            message: 'Investigation details are required',
+            details: 'The details field is missing or invalid'
+          });
+        }
+        
+        if (!date) {
+          return res.status(400).json({ 
+            error: 'Missing required field',
+            message: 'Date is required',
+            details: 'The date field is missing or invalid'
           });
         }
 
