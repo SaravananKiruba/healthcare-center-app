@@ -58,7 +58,18 @@ export default async function handler(req, res) {
           return res.status(404).json({ error: 'Investigation not found' });
         }
 
-        const { type, details, date, fileUrl } = req.body;
+        const { 
+          type, 
+          details, 
+          date, 
+          fileUrl,
+          doctor,
+          results,
+          normalRange,
+          followUpNeeded,
+          followUpDate,
+          notes 
+        } = req.body;
 
         const updatedInvestigation = await prisma.investigation.update({
           where: { id: id },
@@ -67,6 +78,12 @@ export default async function handler(req, res) {
             details: details || existingInvestigation.details,
             date: date ? new Date(date) : existingInvestigation.date,
             fileUrl: fileUrl !== undefined ? fileUrl : existingInvestigation.fileUrl,
+            doctor: doctor !== undefined ? doctor : existingInvestigation.doctor,
+            results: results !== undefined ? results : existingInvestigation.results,
+            normalRange: normalRange !== undefined ? normalRange : existingInvestigation.normalRange,
+            followUpNeeded: followUpNeeded !== undefined ? followUpNeeded : existingInvestigation.followUpNeeded,
+            followUpDate: followUpDate ? new Date(followUpDate) : existingInvestigation.followUpDate,
+            notes: notes !== undefined ? notes : existingInvestigation.notes,
           },
           include: {
             patient: {

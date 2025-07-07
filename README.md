@@ -15,9 +15,11 @@ A comprehensive Next.js web application for healthcare centers to manage patient
   - Patient visit records
 
 - **Investigation Management**
-  - Create and manage investigations for patients
-  - Upload and store investigation files
-  - Track investigation history
+  - Create and manage comprehensive investigations for patients
+  - Upload and store investigation files and reports
+  - Track investigation history with detailed medical parameters
+  - Schedule follow-up dates for ongoing patient care
+  - Sort and filter investigations by type and date
 
 - **User Management (Admin)**
   - Create, update, and manage users

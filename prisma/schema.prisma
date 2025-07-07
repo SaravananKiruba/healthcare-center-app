@@ -53,17 +53,23 @@ model Patient {
 }
 
 model Investigation {
-  id        String   @id @default(cuid())
-  type      String
-  details   String
-  date      DateTime
-  fileUrl   String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String    @id @default(cuid())
+  type           String
+  details        String
+  date           DateTime
+  fileUrl        String?
+  doctor         String?
+  results        String?
+  normalRange    String?
+  followUpNeeded Boolean?  @default(false)
+  followUpDate   DateTime?
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
   
   // Relations
-  patientId String
-  patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patientId      String
+  patient        Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
   
   @@map("investigations")
 }

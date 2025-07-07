@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Button,
@@ -43,6 +43,7 @@ import {
   Select,
   Textarea,
   IconButton,
+  Switch,
 } from '@chakra-ui/react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
@@ -143,6 +144,7 @@ const PatientView = ({ patientId }) => {
   // Check delete permissions - only admins can delete
   const canDelete = currentUser.role === 'admin';
   
+  // Return component
   return (
     <Box>
       <Flex 
@@ -210,12 +212,17 @@ const PatientView = ({ patientId }) => {
                 <Heading size="md">{patient.name}</Heading>
                 <HStack mt="1">
                   <Text color="gray.600">ID: </Text>
-                  <Text fontWeight="semibold" fontFamily="mono">{patient.id}</Text>
+                  <Text fontWeight="semibold" fontFamily="mono">{patient.id.substring(0, 8)}</Text>
                 </HStack>
                 <HStack mt="1">
                   <Badge colorScheme="blue">{patient.sex}</Badge>
                   <Text fontWeight="semibold">{patient.age} years</Text>
                 </HStack>
+                {patient.investigations && patient.investigations.length > 0 && (
+                  <Badge colorScheme="green" mt={1}>
+                    {patient.investigations.length} Investigation(s)
+                  </Badge>
+                )}
               </Box>
             </HStack>
             
@@ -258,16 +265,20 @@ const PatientView = ({ patientId }) => {
       </Card>
       
       {/* Patient Tabs */}
-      <Tabs isLazy colorScheme="brand">
+      <Tabs isLazy colorScheme="brand" defaultIndex={0}>
         <TabList overflowX="auto" flexWrap="nowrap" py="2">
+          <Tab fontWeight="medium">Investigations & Reports</Tab>
           <Tab>Medical History</Tab>
           <Tab>Physical Generals</Tab>
           {patient.sex === 'Female' && <Tab>Menstrual History</Tab>}
           <Tab>Food & Habits</Tab>
-          <Tab>Investigations</Tab>
         </TabList>
         
         <TabPanels mt="4">
+          <TabPanel p="0">
+            <InvestigationsTab patient={patient} canEdit={canEdit} />
+          </TabPanel>
+          
           <TabPanel p="0">
             <MedicalHistoryTab patient={patient} />
           </TabPanel>
@@ -284,10 +295,6 @@ const PatientView = ({ patientId }) => {
           
           <TabPanel p="0">
             <FoodHabitsTab patient={patient} />
-          </TabPanel>
-          
-          <TabPanel p="0">
-            <InvestigationsTab patient={patient} canEdit={canEdit} />
           </TabPanel>
         </TabPanels>
       </Tabs>
@@ -1170,6 +1177,8 @@ const InvestigationsTab = ({ patient, canEdit }) => {
   const [currentInvestigation, setCurrentInvestigation] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [filter, setFilter] = useState('all'); // Filter for investigation types: 'all', 'blood', 'xray', etc.
+  const [sortOrder, setSortOrder] = useState('desc'); // Sort order: 'asc' or 'desc'
   const toast = useToast();
   const { investigationsAPI, addInvestigation } = useAppContext();
   const [investigations, setInvestigations] = useState([]);
@@ -1213,6 +1222,31 @@ const InvestigationsTab = ({ patient, canEdit }) => {
       setIsLoading(false);
     }
   };
+
+  // Get investigation types for filtering
+  const investigationTypes = useMemo(() => {
+    const types = investigations.map(inv => inv.type);
+    return ['all', ...new Set(types)];
+  }, [investigations]);
+  
+  // Filter and sort investigations based on current settings
+  const filteredInvestigations = useMemo(() => {
+    let filtered = [...investigations];
+    
+    // Apply type filter
+    if (filter !== 'all') {
+      filtered = filtered.filter(inv => inv.type === filter);
+    }
+    
+    // Apply sorting
+    filtered.sort((a, b) => {
+      const dateA = new Date(a.date);
+      const dateB = new Date(b.date);
+      return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+    });
+    
+    return filtered;
+  }, [investigations, filter, sortOrder]);
 
   // Delete an investigation
   const handleDeleteInvestigation = async (id) => {
@@ -1261,6 +1295,15 @@ const InvestigationsTab = ({ patient, canEdit }) => {
     setIsEditModalOpen(false);
     setCurrentInvestigation(null);
   };
+
+  // Get count of each investigation type for the summary
+  const investigationSummary = useMemo(() => {
+    const summary = {};
+    investigations.forEach(inv => {
+      summary[inv.type] = (summary[inv.type] || 0) + 1;
+    });
+    return summary;
+  }, [investigations]);
   
   return (
     <>
@@ -1275,12 +1318,76 @@ const InvestigationsTab = ({ patient, canEdit }) => {
                 leftIcon={<FiPlusCircle />}
                 onClick={() => setIsAddModalOpen(true)}
               >
-                Add Report
+                Add Investigation
               </Button>
             )}
           </Flex>
         </CardHeader>
         <CardBody>
+          {/* Summary of patient investigations */}
+          {investigations.length > 0 && (
+            <Box mb={6} p={4} borderWidth="1px" borderRadius="lg" bg="gray.50">
+              <Heading size="sm" mb={3}>Investigation Summary</Heading>
+              <SimpleGrid columns={{ base: 1, md: 3 }} spacing={3}>
+                <Box>
+                  <Text fontWeight="bold">Total Investigations</Text>
+                  <Text fontSize="2xl">{investigations.length}</Text>
+                </Box>
+                <Box>
+                  <Text fontWeight="bold">Latest Investigation</Text>
+                  <Text>{investigations.length > 0 ? 
+                    `${investigations[0].type} (${formatDate(investigations[0].date)})` : 
+                    'None'}
+                  </Text>
+                </Box>
+                <Box>
+                  <Text fontWeight="bold">Types</Text>
+                  <HStack flexWrap="wrap" spacing={2}>
+                    {Object.entries(investigationSummary).map(([type, count]) => (
+                      <Badge key={type} colorScheme="brand">
+                        {type}: {count}
+                      </Badge>
+                    ))}
+                  </HStack>
+                </Box>
+              </SimpleGrid>
+            </Box>
+          )}
+
+          {/* Filters and controls */}
+          {investigations.length > 0 && (
+            <Flex mb={4} justify="space-between" align="center" flexWrap="wrap" gap={2}>
+              <HStack>
+                <Text fontWeight="medium">Filter by:</Text>
+                <Select 
+                  size="sm" 
+                  width="150px" 
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value)}
+                >
+                  {investigationTypes.map(type => (
+                    <option key={type} value={type}>
+                      {type === 'all' ? 'All Types' : type}
+                    </option>
+                  ))}
+                </Select>
+              </HStack>
+              
+              <HStack>
+                <Text fontWeight="medium">Sort:</Text>
+                <Select 
+                  size="sm" 
+                  width="120px"
+                  value={sortOrder}
+                  onChange={(e) => setSortOrder(e.target.value)}
+                >
+                  <option value="desc">Newest First</option>
+                  <option value="asc">Oldest First</option>
+                </Select>
+              </HStack>
+            </Flex>
+          )}
+
           {isLoading ? (
             <Flex justify="center" align="center" py="6">
               <Text>Loading investigations...</Text>
@@ -1297,9 +1404,11 @@ const InvestigationsTab = ({ patient, canEdit }) => {
                 Try Again
               </Button>
             </Box>
-          ) : investigations.length === 0 ? (
+          ) : filteredInvestigations.length === 0 ? (
             <Text textAlign="center" py="6" color="gray.500">
-              No investigation reports added yet.
+              {investigations.length > 0 ? 
+                'No investigations match the current filter.' : 
+                'No investigation reports added yet.'}
             </Text>
           ) : (
             <TableContainer>
@@ -1313,10 +1422,14 @@ const InvestigationsTab = ({ patient, canEdit }) => {
                   </Tr>
                 </Thead>
                 <Tbody>
-                  {investigations.map((investigation) => (
+                  {filteredInvestigations.map((investigation) => (
                     <Tr key={investigation.id}>
                       <Td>{formatDate(investigation.date)}</Td>
-                      <Td>{investigation.type}</Td>
+                      <Td>
+                        <Badge colorScheme={getInvestigationColorScheme(investigation.type)}>
+                          {investigation.type}
+                        </Badge>
+                      </Td>
                       <Td>{investigation.details}</Td>
                       <Td>
                         <HStack spacing="2">
@@ -1330,6 +1443,7 @@ const InvestigationsTab = ({ patient, canEdit }) => {
                               href={investigation.fileUrl}
                               target="_blank"
                               rel="noreferrer"
+                              title="View Report Document"
                             />
                           )}
                           {canEdit && (
@@ -1340,6 +1454,7 @@ const InvestigationsTab = ({ patient, canEdit }) => {
                                 size="sm"
                                 variant="ghost"
                                 onClick={() => handleEditInvestigation(investigation)}
+                                title="Edit Investigation"
                               />
                               <IconButton
                                 aria-label="Delete investigation"
@@ -1348,6 +1463,7 @@ const InvestigationsTab = ({ patient, canEdit }) => {
                                 colorScheme="red"
                                 variant="ghost"
                                 onClick={() => handleDeleteInvestigation(investigation.id)}
+                                title="Delete Investigation"
                               />
                             </>
                           )}
@@ -1378,18 +1494,43 @@ const InvestigationsTab = ({ patient, canEdit }) => {
   );
 };
 
-// Create investigation form modal component
+// Helper function to get color scheme based on investigation type
+const getInvestigationColorScheme = (type) => {
+  const typeMap = {
+    'Blood Test': 'red',
+    'Urine Test': 'yellow',
+    'X-Ray': 'blue',
+    'CT Scan': 'purple',
+    'MRI': 'pink',
+    'Ultrasound': 'cyan',
+    'ECG': 'orange',
+    'EEG': 'green'
+  };
+  
+  return typeMap[type] || 'gray';
+};
+
 const InvestigationFormModal = ({ isOpen, onClose, patientId, investigation, onSave }) => {
   const toast = useToast();
   const { investigationsAPI, addInvestigation } = useAppContext();
   const isEditing = !!investigation;
+  const [selectedType, setSelectedType] = useState(investigation?.type || '');
   
   // Initialize form validation schema
   const validationSchema = Yup.object({
     type: Yup.string().required('Investigation type is required'),
     details: Yup.string().required('Details are required'),
     date: Yup.date().required('Date is required').max(new Date(), 'Date cannot be in the future'),
-    fileUrl: Yup.string().url('Must be a valid URL').nullable()
+    fileUrl: Yup.string().url('Must be a valid URL').nullable(),
+    doctor: Yup.string(),
+    results: Yup.string(),
+    normalRange: Yup.string(),
+    followUpNeeded: Yup.boolean(),
+    followUpDate: Yup.date().nullable().when('followUpNeeded', {
+      is: true,
+      then: Yup.date().min(new Date(), 'Follow-up date must be in the future').required('Follow-up date is required'),
+    }),
+    notes: Yup.string()
   });
   
   // Initialize formik for form handling
@@ -1399,6 +1540,12 @@ const InvestigationFormModal = ({ isOpen, onClose, patientId, investigation, onS
       details: investigation?.details || '',
       date: investigation?.date ? new Date(investigation.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
       fileUrl: investigation?.fileUrl || '',
+      doctor: investigation?.doctor || '',
+      results: investigation?.results || '',
+      normalRange: investigation?.normalRange || '',
+      followUpNeeded: investigation?.followUpNeeded || false,
+      followUpDate: investigation?.followUpDate ? new Date(investigation.followUpDate).toISOString().split('T')[0] : '',
+      notes: investigation?.notes || ''
     },
     validationSchema,
     onSubmit: async (values) => {
@@ -1446,9 +1593,16 @@ const InvestigationFormModal = ({ isOpen, onClose, patientId, investigation, onS
       }
     },
   });
+
+  // Update form fields based on investigation type
+  useEffect(() => {
+    if (formik.values.type !== selectedType) {
+      setSelectedType(formik.values.type);
+    }
+  }, [formik.values.type]);
   
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="md">
+    <Modal isOpen={isOpen} onClose={onClose} size="lg">
       <ModalOverlay />
       <ModalContent>
         <ModalHeader>
@@ -1458,60 +1612,151 @@ const InvestigationFormModal = ({ isOpen, onClose, patientId, investigation, onS
         
         <ModalBody>
           <form onSubmit={formik.handleSubmit}>
-            <VStack spacing={4}>
-              <FormControl isInvalid={formik.touched.type && formik.errors.type}>
-                <FormLabel htmlFor="type">Investigation Type</FormLabel>
-                <Select
-                  id="type"
-                  placeholder="Select type"
-                  {...formik.getFieldProps('type')}
-                >
-                  <option value="Blood Test">Blood Test</option>
-                  <option value="Urine Test">Urine Test</option>
-                  <option value="X-Ray">X-Ray</option>
-                  <option value="CT Scan">CT Scan</option>
-                  <option value="MRI">MRI</option>
-                  <option value="Ultrasound">Ultrasound</option>
-                  <option value="ECG">ECG</option>
-                  <option value="EEG">EEG</option>
-                  <option value="Other">Other</option>
-                </Select>
-                <FormErrorMessage>{formik.errors.type}</FormErrorMessage>
-              </FormControl>
+            <VStack spacing={4} align="stretch">
+              <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                <FormControl isRequired isInvalid={formik.touched.type && formik.errors.type}>
+                  <FormLabel htmlFor="type">Investigation Type</FormLabel>
+                  <Select
+                    id="type"
+                    placeholder="Select type"
+                    {...formik.getFieldProps('type')}
+                  >
+                    <option value="Blood Test">Blood Test</option>
+                    <option value="Urine Test">Urine Test</option>
+                    <option value="X-Ray">X-Ray</option>
+                    <option value="CT Scan">CT Scan</option>
+                    <option value="MRI">MRI</option>
+                    <option value="Ultrasound">Ultrasound</option>
+                    <option value="ECG">ECG</option>
+                    <option value="EEG">EEG</option>
+                    <option value="Biopsy">Biopsy</option>
+                    <option value="Endoscopy">Endoscopy</option>
+                    <option value="Colonoscopy">Colonoscopy</option>
+                    <option value="Other">Other</option>
+                  </Select>
+                  <FormErrorMessage>{formik.errors.type}</FormErrorMessage>
+                </FormControl>
+                
+                <FormControl isRequired isInvalid={formik.touched.date && formik.errors.date}>
+                  <FormLabel htmlFor="date">Date</FormLabel>
+                  <Input
+                    id="date"
+                    type="date"
+                    {...formik.getFieldProps('date')}
+                  />
+                  <FormErrorMessage>{formik.errors.date}</FormErrorMessage>
+                </FormControl>
+              </SimpleGrid>
               
-              <FormControl isInvalid={formik.touched.date && formik.errors.date}>
-                <FormLabel htmlFor="date">Date</FormLabel>
+              <FormControl>
+                <FormLabel htmlFor="doctor">Doctor</FormLabel>
                 <Input
-                  id="date"
-                  type="date"
-                  {...formik.getFieldProps('date')}
+                  id="doctor"
+                  placeholder="Doctor who ordered/performed the investigation"
+                  {...formik.getFieldProps('doctor')}
                 />
-                <FormErrorMessage>{formik.errors.date}</FormErrorMessage>
               </FormControl>
               
-              <FormControl isInvalid={formik.touched.details && formik.errors.details}>
+              <FormControl isRequired isInvalid={formik.touched.details && formik.errors.details}>
                 <FormLabel htmlFor="details">Details</FormLabel>
                 <Textarea
                   id="details"
                   placeholder="Enter investigation details"
+                  rows={3}
                   {...formik.getFieldProps('details')}
                 />
                 <FormErrorMessage>{formik.errors.details}</FormErrorMessage>
               </FormControl>
               
-              <FormControl isInvalid={formik.touched.fileUrl && formik.errors.fileUrl}>
-                <FormLabel htmlFor="fileUrl">File URL (Optional)</FormLabel>
-                <Input
-                  id="fileUrl"
-                  type="url"
-                  placeholder="https://example.com/file.pdf"
-                  {...formik.getFieldProps('fileUrl')}
+              {/* Show different fields based on investigation type */}
+              {['Blood Test', 'Urine Test'].includes(selectedType) && (
+                <>
+                  <FormControl>
+                    <FormLabel htmlFor="results">Results</FormLabel>
+                    <Textarea
+                      id="results"
+                      placeholder="Enter test results"
+                      rows={2}
+                      {...formik.getFieldProps('results')}
+                    />
+                  </FormControl>
+                  
+                  <FormControl>
+                    <FormLabel htmlFor="normalRange">Normal Range</FormLabel>
+                    <Input
+                      id="normalRange"
+                      placeholder="Normal reference ranges"
+                      {...formik.getFieldProps('normalRange')}
+                    />
+                  </FormControl>
+                </>
+              )}
+              
+              {['X-Ray', 'CT Scan', 'MRI', 'Ultrasound'].includes(selectedType) && (
+                <FormControl isInvalid={formik.touched.fileUrl && formik.errors.fileUrl}>
+                  <FormLabel htmlFor="fileUrl">Image/Report URL</FormLabel>
+                  <Input
+                    id="fileUrl"
+                    type="url"
+                    placeholder="https://example.com/image.jpg"
+                    {...formik.getFieldProps('fileUrl')}
+                  />
+                  <FormErrorMessage>{formik.errors.fileUrl}</FormErrorMessage>
+                </FormControl>
+              )}
+              
+              {!['X-Ray', 'CT Scan', 'MRI', 'Ultrasound', 'Blood Test', 'Urine Test'].includes(selectedType) && (
+                <FormControl isInvalid={formik.touched.fileUrl && formik.errors.fileUrl}>
+                  <FormLabel htmlFor="fileUrl">File URL (Optional)</FormLabel>
+                  <Input
+                    id="fileUrl"
+                    type="url"
+                    placeholder="https://example.com/file.pdf"
+                    {...formik.getFieldProps('fileUrl')}
+                  />
+                  <FormErrorMessage>{formik.errors.fileUrl}</FormErrorMessage>
+                </FormControl>
+              )}
+              
+              <FormControl>
+                <FormLabel htmlFor="notes">Additional Notes</FormLabel>
+                <Textarea
+                  id="notes"
+                  placeholder="Any additional notes"
+                  rows={2}
+                  {...formik.getFieldProps('notes')}
                 />
-                <FormErrorMessage>{formik.errors.fileUrl}</FormErrorMessage>
               </FormControl>
+              
+              <Box>
+                <FormControl display="flex" alignItems="center">
+                  <FormLabel htmlFor="followUpNeeded" mb="0">
+                    Follow-up Required?
+                  </FormLabel>
+                  <Switch
+                    id="followUpNeeded"
+                    isChecked={formik.values.followUpNeeded}
+                    onChange={() => {
+                      formik.setFieldValue('followUpNeeded', !formik.values.followUpNeeded);
+                    }}
+                  />
+                </FormControl>
+                
+                {formik.values.followUpNeeded && (
+                  <FormControl mt={3} isInvalid={formik.touched.followUpDate && formik.errors.followUpDate}>
+                    <FormLabel htmlFor="followUpDate">Follow-up Date</FormLabel>
+                    <Input
+                      id="followUpDate"
+                      type="date"
+                      {...formik.getFieldProps('followUpDate')}
+                    />
+                    <FormErrorMessage>{formik.errors.followUpDate}</FormErrorMessage>
+                  </FormControl>
+                )}
+              </Box>
             </VStack>
             
-            <ModalFooter px={0}>
+            <ModalFooter px={0} mt={6}>
               <Button mr={3} onClick={onClose} variant="ghost">
                 Cancel
               </Button>

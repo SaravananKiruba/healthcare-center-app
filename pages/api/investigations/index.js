@@ -63,7 +63,19 @@ export default async function handler(req, res) {
         return res.status(200).json(investigations);
 
       case 'POST':
-        const { patientId: newPatientId, type, details, date, fileUrl } = req.body;
+        const { 
+          patientId: newPatientId, 
+          type, 
+          details, 
+          date, 
+          fileUrl,
+          doctor,
+          results,
+          normalRange,
+          followUpNeeded,
+          followUpDate,
+          notes
+        } = req.body;
         
         console.log('Investigation POST request received:', req.body);
 
@@ -118,6 +130,12 @@ export default async function handler(req, res) {
             details,
             date: new Date(date),
             fileUrl: fileUrl || null,
+            doctor: doctor || null,
+            results: results || null,
+            normalRange: normalRange || null,
+            followUpNeeded: followUpNeeded || false,
+            followUpDate: followUpDate ? new Date(followUpDate) : null,
+            notes: notes || null,
             patientId: newPatientId
           },
           include: {
