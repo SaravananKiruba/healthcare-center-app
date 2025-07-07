@@ -29,8 +29,8 @@ import {  FiSave,
   FiDownload,
   FiUpload,
 } from 'react-icons/fi';
-import { useAuth } from '../../context/AuthContext-nextjs';
-import UserManagement from '../../components/UserManagement/UserManagement';
+import { useAuth } from '../../lib/auth/AuthContext';
+import UserManagement from '../../components/admin/UserManagement';
 
 const Settings = () => {  const toast = useToast();
   const { colorMode, toggleColorMode } = useColorMode();

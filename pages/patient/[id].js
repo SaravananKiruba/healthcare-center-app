@@ -1,8 +1,8 @@
 import React from 'react';
 import { useRouter } from 'next/router';
-import MainLayout from '../../src/layouts/MainLayout';
+import MainLayout from '../../src/components/layout/MainLayout';
 import PatientView from '../../src/pages/PatientView/PatientView';
-import ProtectedRoute from '../../src/components/Auth/ProtectedRoute';
+import { ProtectedRoute } from '@/lib/auth';
 
 export default function PatientDetailPage() {
   const router = useRouter();

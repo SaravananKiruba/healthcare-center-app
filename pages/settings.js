@@ -1,7 +1,7 @@
 import React from 'react';
-import MainLayout from '../src/layouts/MainLayout';
+import MainLayout from '@/components/layout/MainLayout';
 import Settings from '../src/pages/Settings/Settings';
-import ProtectedRoute from '../src/components/Auth/ProtectedRoute';
+import { ProtectedRoute } from '@/lib/auth';
 
 export default function SettingsPage() {
   return (

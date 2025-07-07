@@ -1,7 +1,7 @@
 import React from 'react';
-import MainLayout from '../../src/layouts/MainLayout';
+import MainLayout from '../../src/components/layout/MainLayout';
 import PatientRegistration from '../../src/pages/PatientRegistration/PatientRegistration';
-import ProtectedRoute from '../../src/components/Auth/ProtectedRoute';
+import { ProtectedRoute } from '@/lib/auth';
 
 export default function PatientRegisterPage() {
   return (

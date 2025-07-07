@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { patientsAPI, investigationsAPI, apiUtils } from '../services/api-nextjs';
-import { useAuth } from './AuthContext-nextjs';
+import { PatientService, InvestigationService } from '../lib/api';
+import { useAuth } from '../lib/auth/AuthContext';
 
 const AppContext = createContext();
 
@@ -53,9 +53,10 @@ export const AppProvider = ({ children }) => {
   // Check API health
   const checkApiHealth = useCallback(async () => {
     try {
-      const healthy = await apiUtils.isApiHealthy();
-      setIsApiHealthy(healthy);
-      return healthy;
+      // Check API health by making a simple request
+      await fetch('/api/health');
+      setIsApiHealthy(true);
+      return true;
     } catch (error) {
       setIsApiHealthy(false);
       return false;
@@ -70,7 +71,7 @@ export const AppProvider = ({ children }) => {
     setError(null);
     
     try {
-      const data = await patientsAPI.getAllPatients();
+      const data = await PatientService.getAllPatients();
       setPatients(Array.isArray(data) ? data : data.patients || []);
       setError(null);
     } catch (err) {
@@ -92,7 +93,9 @@ export const AppProvider = ({ children }) => {
     setError(null);
     
     try {
-      const data = await investigationsAPI.getAllInvestigations(patientId);
+      const data = patientId 
+        ? await InvestigationService.getPatientInvestigations(patientId)
+        : await InvestigationService.getAllInvestigations();
       setInvestigations(Array.isArray(data) ? data : data.investigations || []);
       setError(null);
     } catch (err) {
@@ -141,7 +144,7 @@ export const AppProvider = ({ children }) => {
         ...patientData,
       };
 
-      const newPatient = await patientsAPI.createPatient(patientWithDefaults);
+      const newPatient = await PatientService.createPatient(patientWithDefaults);
       
       // Ensure JSON fields are properly parsed
       const parsedPatient = {
@@ -188,7 +191,7 @@ export const AppProvider = ({ children }) => {
         updatedAt: new Date().toISOString(),
       };
 
-      const updatedPatient = await patientsAPI.updatePatient(patientId, dataWithTimestamp);
+      const updatedPatient = await PatientService.updatePatient(patientId, dataWithTimestamp);
       
       // Ensure JSON fields are properly parsed
       const parsedPatient = {
@@ -232,7 +235,7 @@ export const AppProvider = ({ children }) => {
     setError(null);
     
     try {
-      await patientsAPI.deletePatient(patientId);
+      await PatientService.deletePatient(patientId);
       
       // Remove the patient from the state
       setPatients(prevPatients =>
@@ -266,7 +269,7 @@ export const AppProvider = ({ children }) => {
         ...investigationData,
       };
 
-      const newInvestigation = await investigationsAPI.createInvestigation(investigationWithDefaults);
+      const newInvestigation = await InvestigationService.createInvestigation(investigationWithDefaults);
       
       setInvestigations(prevInvestigations => [...prevInvestigations, newInvestigation]);
       setError(null);
@@ -315,8 +318,8 @@ export const AppProvider = ({ children }) => {
     checkApiHealth,
     
     // API services
-    patientsAPI,
-    investigationsAPI,
+    patientsAPI: PatientService,
+    investigationsAPI: InvestigationService,
   };
 
   return (

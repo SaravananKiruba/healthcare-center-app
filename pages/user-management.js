@@ -1,7 +1,7 @@
 import React from 'react';
-import MainLayout from '../src/layouts/MainLayout';
-import UserManagement from '../src/components/UserManagement/UserManagement';
-import ProtectedRoute from '../src/components/Auth/ProtectedRoute';
+import MainLayout from '@/components/layout/MainLayout';
+import UserManagement from '@/components/UserManagement/UserManagement';
+import { ProtectedRoute } from '@/lib/auth';
 
 export default function UserManagementPage() {
   return (
