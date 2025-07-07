@@ -33,8 +33,8 @@ import {
   CardBody,
 } from '@chakra-ui/react';
 import { FiPlus, FiEdit, FiUsers } from 'react-icons/fi';
-import { authAPI } from '../../services/api';
-import { useAuth } from '../../context/AuthContext';
+import { authAPI } from '../../services/api-nextjs';
+import { useAuth } from '../../context/AuthContext-nextjs';
 
 const UserManagement = () => {
   const [users, setUsers] = useState([]);

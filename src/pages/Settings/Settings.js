@@ -29,7 +29,7 @@ import {  FiSave,
   FiDownload,
   FiUpload,
 } from 'react-icons/fi';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/AuthContext-nextjs';
 import UserManagement from '../../components/UserManagement/UserManagement';
 
 const Settings = () => {  const toast = useToast();

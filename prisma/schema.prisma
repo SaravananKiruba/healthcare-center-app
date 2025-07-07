@@ -1,0 +1,69 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  hashedPassword String
+  fullName       String?
+  role           String    @default("doctor") // admin, doctor
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  
+  patients       Patient[]
+  
+  @@map("users")
+}
+
+model Patient {
+  id               String    @id @default(cuid())
+  name             String
+  guardianName     String?
+  address          String
+  age              Int
+  sex              String
+  occupation       String?
+  mobileNumber     String
+  chiefComplaints  String
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  
+  // JSON fields stored as TEXT for SQLite compatibility
+  medicalHistory   String?
+  physicalGenerals String?
+  menstrualHistory String?
+  foodAndHabit     String?
+  
+  // Relations
+  userId           String
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  investigations   Investigation[]
+  
+  @@map("patients")
+}
+
+model Investigation {
+  id        String   @id @default(cuid())
+  type      String
+  details   String
+  date      DateTime
+  fileUrl   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  patientId String
+  patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  @@map("investigations")
+}

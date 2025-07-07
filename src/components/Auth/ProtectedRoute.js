@@ -1,7 +1,7 @@
-import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { useRouter } from 'next/router';
 import { Box, Alert, AlertIcon, AlertTitle, AlertDescription, Spinner, Center, Button, Text } from '@chakra-ui/react';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/AuthContext-nextjs';
 
 /**
  * Enhanced ProtectedRoute component that handles:
@@ -23,7 +23,24 @@ const ProtectedRoute = ({
   redirectTo = '/'
 }) => {
   const { isAuthenticated, isLoading, user, hasRole } = useAuth();
-  const location = useLocation();
+  const router = useRouter();
+
+  // Handle authentication and role-based access control
+  useEffect(() => {
+    if (!isLoading) {
+      if (!isAuthenticated) {
+        if (!showAlert) {
+          router.push(`/login?callbackUrl=${encodeURIComponent(router.asPath)}`);
+          return;
+        }
+      } else if (roles.length > 0 && !hasRole(roles)) {
+        if (!showAlert) {
+          router.push(redirectTo);
+          return;
+        }
+      }
+    }
+  }, [isAuthenticated, isLoading, roles, hasRole, showAlert, redirectTo, router]);
 
   // Show loading spinner while authentication status is being checked
   if (isLoading) {
@@ -39,11 +56,12 @@ const ProtectedRoute = ({
       </Center>
     );
   }
+  
   // Handle authentication check
   if (!isAuthenticated) {
-    // If showAlert is false, redirect to login with location state to enable returning after login
+    // If showAlert is false, redirect is handled in useEffect
     if (!showAlert) {
-      return <Navigate to="/" state={{ from: location }} replace />;
+      return null;
     }
     
     // Otherwise show access denied message
@@ -82,9 +100,9 @@ const ProtectedRoute = ({
   }
   // Handle role-based access control
   if (roles.length > 0 && !hasRole(roles)) {
-    // If showAlert is false, redirect to dashboard
+    // If showAlert is false, redirect is handled in useEffect
     if (!showAlert) {
-      return <Navigate to={redirectTo} replace />;
+      return null;
     }
     
     // Otherwise show insufficient permissions message

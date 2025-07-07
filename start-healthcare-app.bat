@@ -1,0 +1,9 @@
+@echo off
+echo Starting Healthcare Center Application...
+echo.
+cd /d "%~dp0"
+echo Setting up database...
+call npx prisma generate
+call npx prisma db push
+echo Starting Next.js development server...
+npm run dev

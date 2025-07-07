@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useRouter } from 'next/router';
 import {
   Box,
   Button,
@@ -24,7 +24,7 @@ import {
 } from '@chakra-ui/react';
 import { ViewIcon, ViewOffIcon } from '@chakra-ui/icons';
 import { FiLock } from 'react-icons/fi';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/AuthContext-nextjs';
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -35,8 +35,7 @@ const Login = () => {
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
-  const navigate = useNavigate();
-  const location = useLocation();
+  const router = useRouter();
   const { login, isAuthenticated, user, getDashboardByRole } = useAuth();
   
   // Get color values for the theme
@@ -46,12 +45,12 @@ const Login = () => {
   // Check if user is already authenticated
   useEffect(() => {
     if (isAuthenticated && user) {
-      const from = location.state?.from?.pathname || getDashboardByRole(user.role);
-      navigate(from, { replace: true });
+      const from = router.query.callbackUrl || getDashboardByRole(user.role);
+      router.push(from);
     } else {
       setIsCheckingAuth(false);
     }
-  }, [isAuthenticated, user, navigate, location, getDashboardByRole]);
+  }, [isAuthenticated, user, router, getDashboardByRole]);
 
   const handleChange = (e) => {
     setFormData({
@@ -74,13 +73,6 @@ const Login = () => {
     }
 
     try {
-      // First check if the backend server is running
-      try {
-        await fetch('http://localhost:8000/health');
-      } catch (connectionError) {
-        throw new Error('Unable to connect to the server. Please check if the backend server is running.');
-      }
-      
       // Use the enhanced login function from AuthContext
       const result = await login(formData.email, formData.password);
       
@@ -90,10 +82,10 @@ const Login = () => {
         
         // Get the intended destination (if redirected from a protected route)
         // or use the default dashboard for the user's role
-        const from = location.state?.from?.pathname || result.redirectTo;
+        const from = router.query.callbackUrl || result.redirectTo;
         
         // Navigate to the appropriate dashboard based on role or previous location
-        navigate(from, { replace: true });
+        router.push(from);
       } else {
         setError(result.error);
       }

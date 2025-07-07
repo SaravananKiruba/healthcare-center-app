@@ -7,7 +7,7 @@ import {
   Flex,
   useColorModeValue,
 } from '@chakra-ui/react';
-import { Link as RouterLink } from 'react-router-dom';
+import Link from 'next/link';
 import { FiHome } from 'react-icons/fi';
 
 const NotFound = () => {
@@ -32,15 +32,16 @@ const NotFound = () => {
         <Text fontSize="lg" mb={6} color="gray.600">
           The page you're looking for does not exist or has been moved.
         </Text>
-        <Button
-          leftIcon={<FiHome />}
-          colorScheme="brand"
-          as={RouterLink}
-          to="/"
-          size="lg"
-        >
-          Go Home
-        </Button>
+        <Link href="/" passHref>
+          <Button
+            leftIcon={<FiHome />}
+            colorScheme="brand"
+            as="a"
+            size="lg"
+          >
+            Go Home
+          </Button>
+        </Link>
       </Box>
     </Flex>
   );

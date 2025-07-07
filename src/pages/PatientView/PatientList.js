@@ -32,7 +32,7 @@ import {
   MenuItem,
   useToast,
 } from '@chakra-ui/react';
-import { Link as RouterLink } from 'react-router-dom';
+import Link from 'next/link';
 import {
   FiSearch,
   FiPlus,
@@ -173,15 +173,16 @@ const PatientList = () => {
             />
           </InputGroup>
           
-          <Button
-            as={RouterLink}
-            to="/patient/register"
-            colorScheme="brand"
-            leftIcon={<FiPlus />}
-            size={{ base: 'sm', md: 'md' }}
-          >
-            New Patient
-          </Button>
+          <Link href="/patient/register" passHref>
+            <Button
+              as="a"
+              colorScheme="brand"
+              leftIcon={<FiPlus />}
+              size={{ base: 'sm', md: 'md' }}
+            >
+              New Patient
+            </Button>
+          </Link>
         </HStack>
       </Flex>
       
@@ -207,9 +208,12 @@ const PatientList = () => {
                   filteredPatients.map((patient) => (
                     <Tr key={patient.id} _hover={{ bg: 'gray.50' }}>
                       <Td fontFamily="mono">{patient.id}</Td>
-                      <Td fontWeight="medium">                        <Text as={RouterLink} to={`/patient/${patient.id}`} color="brand.600">
-                          {patient.name || 'Unnamed Patient'}
-                        </Text>
+                      <Td fontWeight="medium">
+                        <Link href={`/patient/${patient.id}`} passHref>
+                          <Text as="a" color="brand.600">
+                            {patient.name || 'Unnamed Patient'}
+                          </Text>
+                        </Link>
                       </Td>                      <Td display={{ base: 'none', md: 'table-cell' }}>
                         {patient.age || '?'}/{patient.sex?.charAt(0) || '?'}
                       </Td>
@@ -226,13 +230,14 @@ const PatientList = () => {
                             aria-label="Actions"
                           />
                           <MenuList>
-                            <MenuItem 
-                              as={RouterLink} 
-                              to={`/patient/${patient.id}`}
-                              icon={<FiEye />}
-                            >
-                              View Details
-                            </MenuItem>
+                            <Link href={`/patient/${patient.id}`} passHref>
+                              <MenuItem 
+                                as="a"
+                                icon={<FiEye />}
+                              >
+                                View Details
+                              </MenuItem>
+                            </Link>
                             <MenuItem icon={<FiEdit />}>Edit Patient</MenuItem>
 
                             {canDelete && (

@@ -32,16 +32,18 @@ import {
   AlertIcon,
 } from '@chakra-ui/react';
 import { FiSave, FiCheckCircle } from 'react-icons/fi';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/router';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import { useAppContext } from '../../context/AppContext';
 
 const PatientRegistration = () => {
   const toast = useToast();
-  const navigate = useNavigate();  const { addPatient, isLoading, error } = useAppContext();
+  const router = useRouter();
+  const { addPatient, isLoading, error } = useAppContext();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [registeredPatientId, setRegisteredPatientId] = useState(null);
+  const [formError, setFormError] = useState(null);
 
   // Form validation schema
   const validationSchema = Yup.object({
@@ -74,6 +76,9 @@ const PatientRegistration = () => {
     },
     validationSchema,    onSubmit: async (values) => {
       try {
+        // Clear any previous errors
+        setFormError(null);
+        
         // Now we can send the data as is since our API interceptor will handle the conversion
         const newPatientData = {
           name: values.name,
@@ -142,9 +147,24 @@ const PatientRegistration = () => {
         onOpen(); // Open the success modal
       } catch (error) {
         console.error("Error registering patient:", error);
+        const errorMessage = error.response?.data?.message || error.message || 'Could not register patient';
+        const errorDetails = error.response?.data?.details || '';
+        
+        console.log('Registration error details:', {
+          message: errorMessage,
+          details: errorDetails,
+          response: error.response?.data
+        });
+        
+        // Set formik status to show additional error details
+        formik.setStatus(errorDetails);
+        
+        // Set form error for display
+        setFormError(`${errorMessage}${errorDetails ? ': ' + errorDetails : ''}`);
+        
         toast({
           title: 'Registration failed',
-          description: error.response?.data?.detail || 'Could not register patient',
+          description: `${errorMessage}${errorDetails ? ': ' + errorDetails : ''}`,
           status: 'error',
           duration: 5000,
           isClosable: true,
@@ -156,7 +176,7 @@ const PatientRegistration = () => {
   // Navigate to the patient's detail page or register another patient
   const handleNavigate = (path) => {
     onClose();
-    navigate(path);
+    router.push(path);
   };
 
   return (
@@ -227,6 +247,8 @@ const PatientRegistration = () => {
                       name="sex" 
                       placeholder="Select sex"
                       {...formik.getFieldProps('sex')}
+                      isRequired={true}
+                      aria-required="true"
                     >
                       <option value="Male">Male</option>
                       <option value="Female">Female</option>
@@ -272,10 +294,28 @@ const PatientRegistration = () => {
                     <FormErrorMessage>{formik.errors.chiefComplaints}</FormErrorMessage>
                   </FormControl>
                 </GridItem>
-              </Grid>              {error && (
+              </Grid>              {(error || formError) && (
                 <Alert status="error" mt={4} mb={2}>
                   <AlertIcon />
-                  {error}
+                  <Box>
+                    <Text fontWeight="bold">Error: {error || formError}</Text>
+                    {formik.status && <Text mt={1}>{formik.status}</Text>}
+                  </Box>
+                </Alert>
+              )}
+              
+              {/* Form validation summary */}
+              {formik.touched.name && Object.keys(formik.errors).length > 0 && (
+                <Alert status="warning" mt={4} mb={2}>
+                  <AlertIcon />
+                  <Box>
+                    <Text fontWeight="bold">Please fix the following errors:</Text>
+                    <ul style={{ marginLeft: '20px', marginTop: '5px' }}>
+                      {Object.entries(formik.errors).map(([field, error]) => (
+                        <li key={field}>{error}</li>
+                      ))}
+                    </ul>
+                  </Box>
                 </Alert>
               )}
               

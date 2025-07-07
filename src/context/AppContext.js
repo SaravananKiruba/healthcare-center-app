@@ -1,7 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { patientsAPI, investigationsAPI } from '../services/api';
-import { useAuth } from './AuthContext';
+import { patientsAPI, investigationsAPI, apiUtils } from '../services/api-nextjs';
+import { useAuth } from './AuthContext-nextjs';
 
 const AppContext = createContext();
 
@@ -16,8 +16,10 @@ export const useAppContext = () => {
 export const AppProvider = ({ children }) => {
   // State for patients and related data
   const [patients, setPatients] = useState([]);
+  const [investigations, setInvestigations] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [isApiHealthy, setIsApiHealthy] = useState(true);
   
   // User related data
   const [currentUser] = useState({
@@ -35,54 +37,179 @@ export const AppProvider = ({ children }) => {
 
   // Get authentication state from AuthContext
   const { isAuthenticated } = useAuth();
-  
-  // Load patients data from API only if user is authenticated
-  useEffect(() => {
-    // Skip fetching if not authenticated
-    if (!isAuthenticated) {
-      return;
+
+  // Error handling utility
+  const handleError = useCallback((error, operation) => {
+    console.error(`Error in ${operation}:`, error);
+    const message = error.message || `Failed to ${operation}`;
+    setError(message);
+    
+    // Auto-clear error after 5 seconds
+    setTimeout(() => setError(null), 5000);
+    
+    return message;
+  }, []);
+
+  // Check API health
+  const checkApiHealth = useCallback(async () => {
+    try {
+      const healthy = await apiUtils.isApiHealthy();
+      setIsApiHealthy(healthy);
+      return healthy;
+    } catch (error) {
+      setIsApiHealthy(false);
+      return false;
     }
+  }, []);
+  
+  // Load patients data from API
+  const fetchPatients = useCallback(async () => {
+    if (!isAuthenticated) return;
     
-    const fetchPatients = async () => {
-      setIsLoading(true);
-      try {
-        const response = await patientsAPI.getAllPatients();
-        setPatients(response.data);
-        setError(null);
-      } catch (err) {
-        console.error("Failed to fetch patients:", err);
-        // Only set error if it's not a 401 (unauthorized) error
-        if (err.response?.status !== 401) {
-          setError(typeof err === 'object' ? (err.message || "Failed to fetch patients") : err);
-        }
-      } finally {
-        setIsLoading(false);
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const data = await patientsAPI.getAllPatients();
+      setPatients(Array.isArray(data) ? data : data.patients || []);
+      setError(null);
+    } catch (err) {
+      console.error("Failed to fetch patients:", err);
+      // Only set error if it's not a 401 (unauthorized) error
+      if (err.response?.status !== 401) {
+        handleError(err, 'fetch patients');
       }
-    };
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isAuthenticated, handleError]);
+
+  // Load investigations data
+  const fetchInvestigations = useCallback(async (patientId = null) => {
+    if (!isAuthenticated) return;
     
-    fetchPatients();
-  }, [isAuthenticated]); // Re-fetch when authentication state changes
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const data = await investigationsAPI.getAllInvestigations(patientId);
+      setInvestigations(Array.isArray(data) ? data : data.investigations || []);
+      setError(null);
+    } catch (err) {
+      console.error("Failed to fetch investigations:", err);
+      if (err.response?.status !== 401) {
+        handleError(err, 'fetch investigations');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isAuthenticated, handleError]);
+
+  // Initial data load
+  useEffect(() => {
+    if (isAuthenticated) {
+      checkApiHealth();
+      fetchPatients();
+      fetchInvestigations();
+    }
+  }, [isAuthenticated, fetchPatients, fetchInvestigations, checkApiHealth]);
 
   // Add a new patient
   const addPatient = async (patientData) => {
+    if (!patientData || typeof patientData !== 'object') {
+      throw new Error('Valid patient data is required');
+    }
+
     setIsLoading(true);
+    setError(null);
+    
     try {
-      // Make sure we're sending the right format to the API
-      const response = await patientsAPI.createPatient(patientData);
+      // Add unique ID and timestamp if not present
+      const patientWithDefaults = {
+        id: uuidv4(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        ...patientData,
+      };
+
+      const newPatient = await patientsAPI.createPatient(patientWithDefaults);
+      
+      // Ensure JSON fields are properly parsed
+      const parsedPatient = {
+        ...newPatient,
+        medicalHistory: typeof newPatient.medicalHistory === 'string' 
+          ? JSON.parse(newPatient.medicalHistory) 
+          : newPatient.medicalHistory,
+        physicalGenerals: typeof newPatient.physicalGenerals === 'string' 
+          ? JSON.parse(newPatient.physicalGenerals) 
+          : newPatient.physicalGenerals,
+        menstrualHistory: typeof newPatient.menstrualHistory === 'string' 
+          ? JSON.parse(newPatient.menstrualHistory) 
+          : newPatient.menstrualHistory,
+        foodAndHabit: typeof newPatient.foodAndHabit === 'string' 
+          ? JSON.parse(newPatient.foodAndHabit) 
+          : newPatient.foodAndHabit
+      };
       
       // Add the new patient to the state
-      const newPatient = response.data;
-      setPatients(prevPatients => [...prevPatients, newPatient]);
+      setPatients(prevPatients => [...prevPatients, parsedPatient]);
       setError(null);
-      return newPatient;
+      return parsedPatient;
     } catch (err) {
-      console.error("Failed to add patient:", err);
-      // Extract the error message from the response if available
-      const errorMessage = err.response?.data?.detail || 
-                          err.message || 
-                          "Failed to add patient";
-      setError(errorMessage);
-      throw err;
+      const errorMessage = handleError(err, 'create patient');
+      throw new Error(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Update an existing patient
+  const updatePatient = async (patientId, updatedData) => {
+    if (!patientId) throw new Error('Patient ID is required');
+    if (!updatedData || typeof updatedData !== 'object') {
+      throw new Error('Valid patient data is required');
+    }
+
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const dataWithTimestamp = {
+        ...updatedData,
+        updatedAt: new Date().toISOString(),
+      };
+
+      const updatedPatient = await patientsAPI.updatePatient(patientId, dataWithTimestamp);
+      
+      // Ensure JSON fields are properly parsed
+      const parsedPatient = {
+        ...updatedPatient,
+        medicalHistory: typeof updatedPatient.medicalHistory === 'string' 
+          ? JSON.parse(updatedPatient.medicalHistory) 
+          : updatedPatient.medicalHistory,
+        physicalGenerals: typeof updatedPatient.physicalGenerals === 'string' 
+          ? JSON.parse(updatedPatient.physicalGenerals) 
+          : updatedPatient.physicalGenerals,
+        menstrualHistory: typeof updatedPatient.menstrualHistory === 'string' 
+          ? JSON.parse(updatedPatient.menstrualHistory) 
+          : updatedPatient.menstrualHistory,
+        foodAndHabit: typeof updatedPatient.foodAndHabit === 'string' 
+          ? JSON.parse(updatedPatient.foodAndHabit) 
+          : updatedPatient.foodAndHabit
+      };
+      
+      // Update the patient in the state
+      setPatients(prevPatients =>
+        prevPatients.map(patient =>
+          patient.id === patientId ? parsedPatient : patient
+        )
+      );
+      
+      setError(null);
+      return parsedPatient;
+    } catch (err) {
+      const errorMessage = handleError(err, 'update patient');
+      throw new Error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -90,140 +217,93 @@ export const AppProvider = ({ children }) => {
 
   // Delete a patient
   const deletePatient = async (patientId) => {
+    if (!patientId) throw new Error('Patient ID is required');
+
     setIsLoading(true);
+    setError(null);
+    
     try {
       await patientsAPI.deletePatient(patientId);
       
       // Remove the patient from the state
-      setPatients(prevPatients => prevPatients.filter(patient => patient.id !== patientId));
-      setError(null);
-    } catch (err) {
-      console.error("Failed to delete patient:", err);
-      setError(typeof err === 'object' ? (err.message || "Failed to delete patient") : err); // Ensure error is a string
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  // Update patient information
-  const updatePatient = async (patientId, patientData) => {
-    setIsLoading(true);
-    try {
-      const response = await patientsAPI.updatePatient(patientId, patientData);
-      
-      // Update the patient in the state
-      const updatedPatient = response.data;
-      setPatients(prevPatients => prevPatients.map(patient => 
-        patient.id === patientId ? updatedPatient : patient
-      ));
+      setPatients(prevPatients =>
+        prevPatients.filter(patient => patient.id !== patientId)
+      );
       
       setError(null);
-      return updatedPatient;
+      return true;
     } catch (err) {
-      console.error("Failed to update patient:", err);
-      const errorMessage = err.response?.data?.detail || 
-                           err.message || 
-                           "Failed to update patient";
-      setError(errorMessage);
-      throw err;
+      const errorMessage = handleError(err, 'delete patient');
+      throw new Error(errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Add a new investigation
-  const addInvestigation = async (patientId, investigationData) => {
+  // Add investigation
+  const addInvestigation = async (investigationData) => {
+    if (!investigationData || typeof investigationData !== 'object') {
+      throw new Error('Valid investigation data is required');
+    }
+
     setIsLoading(true);
+    setError(null);
+    
     try {
-      const apiData = {
+      const investigationWithDefaults = {
+        id: uuidv4(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
         ...investigationData,
-        patientId: patientId,
-        date: new Date(investigationData.date).toISOString()
       };
+
+      const newInvestigation = await investigationsAPI.createInvestigation(investigationWithDefaults);
       
-      const response = await investigationsAPI.createInvestigation(apiData);
-      const newInvestigation = response.data;
-      
-      // Update local state
-      setPatients(prevPatients => prevPatients.map(patient => {
-        if (patient.id === patientId) {
-          const investigations = patient.investigations || [];
-          return {
-            ...patient,
-            investigations: [...investigations, newInvestigation]
-          };
-        }
-        return patient;
-      }));
-      
+      setInvestigations(prevInvestigations => [...prevInvestigations, newInvestigation]);
       setError(null);
       return newInvestigation;
     } catch (err) {
-      console.error("Failed to add investigation:", err);
-      const errorMessage = err.response?.data?.detail || 
-                          err.message || 
-                          "Failed to add investigation";
-      setError(errorMessage);
-      throw err;
+      const errorMessage = handleError(err, 'create investigation');
+      throw new Error(errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Update an existing investigation
-  const updateInvestigation = async (investigationId, patientId, investigationData) => {
-    setIsLoading(true);
-    try {
-      // In a full implementation, this would call the API
-      // const response = await investigationsAPI.updateInvestigation(investigationId, investigationData);
-      
-      // For now, we're updating the state directly
-      const updatedInvestigation = { id: investigationId, ...investigationData };
-      
-      setPatients(prevPatients => {
-        return prevPatients.map(patient => {
-          if (patient.id === patientId) {
-            const investigations = patient.investigations || [];
-            return {
-              ...patient,
-              investigations: investigations.map(inv => 
-                inv.id === investigationId ? updatedInvestigation : inv
-              )
-            };
-          }
-          return patient;
-        });
-      });
-      
-      setError(null);
-      return updatedInvestigation;
-    } catch (err) {
-      console.error("Failed to update investigation:", err);
-      const errorMessage = typeof err === 'object' ? (err.message || "Failed to update investigation") : err;
-      setError(errorMessage);
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
+  // Clear error manually
+  const clearError = () => setError(null);
+
+  // Refresh all data
+  const refreshData = async () => {
+    await Promise.all([
+      fetchPatients(),
+      fetchInvestigations(),
+      checkApiHealth(),
+    ]);
   };
 
   const value = {
     // Data
     patients,
+    investigations,
     doctors,
     currentUser,
+    
+    // State
     isLoading,
     error,
+    isApiHealthy,
     
-    // Patient operations
+    // Actions
     addPatient,
-    deletePatient,
     updatePatient,
-    
-    // Investigation operations
+    deletePatient,
     addInvestigation,
-    updateInvestigation,
+    fetchPatients,
+    fetchInvestigations,
+    clearError,
+    refreshData,
+    checkApiHealth,
   };
 
   return (
@@ -232,4 +312,6 @@ export const AppProvider = ({ children }) => {
     </AppContext.Provider>
   );
 };
+
+export default AppContext;
 

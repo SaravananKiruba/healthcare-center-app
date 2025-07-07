@@ -17,7 +17,8 @@ import {
   MenuItem,
   Badge,
 } from '@chakra-ui/react';
-import { Link as RouterLink, useLocation } from 'react-router-dom';
+import Link from 'next/link';
+import { useRouter } from 'next/router';
 import {
   FiMenu,
   FiHome,
@@ -31,7 +32,7 @@ import {
   FiBarChart2,
   FiPlusCircle,
 }from 'react-icons/fi';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext-nextjs';
 
 // Logo component
 const Logo = () => {
@@ -67,37 +68,37 @@ const getNavItems = (userRole) => {
 // NavItem component
 const NavItem = ({ icon, children, path, active }) => {
   return (
-    <Flex
-      align="center"
-      px="4"
-      py="3"
-      cursor="pointer"
-      userSelect="none"
-      role="group"
-      fontWeight={active ? 'bold' : 'normal'}
-      transition=".3s ease"
-      bg={active ? 'brand.50' : 'transparent'}
-      color={active ? 'brand.500' : undefined}
-      borderLeft={active ? '3px solid' : '3px solid transparent'}
-      borderColor={active ? 'brand.500' : 'transparent'}
-      _hover={{
-        bg: 'brand.50',
-        color: 'brand.500',
-      }}
-      as={RouterLink}
-      to={path}
-    >
-      <Box mr="3">
-        {React.createElement(icon, { size: 18 })}
-      </Box>
-      {children}
-    </Flex>
+    <Link href={path} passHref>
+      <Flex
+        align="center"
+        px="4"
+        py="3"
+        cursor="pointer"
+        userSelect="none"
+        role="group"
+        fontWeight={active ? 'bold' : 'normal'}
+        transition=".3s ease"
+        bg={active ? 'brand.50' : 'transparent'}
+        color={active ? 'brand.500' : undefined}
+        borderLeft={active ? '3px solid' : '3px solid transparent'}
+        borderColor={active ? 'brand.500' : 'transparent'}
+        _hover={{
+          bg: 'brand.50',
+          color: 'brand.500',
+        }}
+      >
+        <Box mr="3">
+          {React.createElement(icon, { size: 18 })}
+        </Box>
+        {children}
+      </Flex>
+    </Link>
   );
 };
 
 // Sidebar component
 const Sidebar = ({ isOpen, onClose }) => {
-  const location = useLocation();
+  const router = useRouter();
   const { user } = useAuth();
   const navItems = getNavItems(user?.role || 'doctor');
   
@@ -128,7 +129,7 @@ const Sidebar = ({ isOpen, onClose }) => {
             key={item.name}
             icon={item.icon}
             path={item.path}
-            active={location.pathname === item.path}
+            active={router.pathname === item.path}
           >
             {item.name}
           </NavItem>
@@ -206,7 +207,9 @@ const Header = ({ onOpen }) => {
           <MenuList>
             <MenuItem icon={<FiUser />}>Profile</MenuItem>
             {user?.role === 'admin' && (
-              <MenuItem icon={<FiSettings />} as={RouterLink} to="/user-management">User Management</MenuItem>
+              <Link href="/user-management" passHref>
+                <MenuItem icon={<FiSettings />}>User Management</MenuItem>
+              </Link>
             )}
             <MenuItem icon={<FiLogOut />} onClick={logout}>Sign out</MenuItem>
           </MenuList>
