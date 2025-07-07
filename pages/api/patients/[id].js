@@ -139,27 +139,27 @@ export default async function handler(req, res) {
           occupation,
           mobileNumber,
           chiefComplaints,
-          medicalHistory,
-          physicalGenerals,
-          menstrualHistory,
-          foodAndHabit
+          medicalHistory: requestMedicalHistory,
+          physicalGenerals: requestPhysicalGenerals,
+          menstrualHistory: requestMenstrualHistory,
+          foodAndHabit: requestFoodAndHabit
         } = req.body;
 
         // Stringify JSON fields for SQLite storage
-        const stringifiedMedicalHistory = medicalHistory !== undefined 
-          ? JSON.stringify(medicalHistory) 
+        const stringifiedMedicalHistory = requestMedicalHistory !== undefined 
+          ? JSON.stringify(requestMedicalHistory) 
           : existingPatient.medicalHistory;
           
-        const stringifiedPhysicalGenerals = physicalGenerals !== undefined 
-          ? JSON.stringify(physicalGenerals) 
+        const stringifiedPhysicalGenerals = requestPhysicalGenerals !== undefined 
+          ? JSON.stringify(requestPhysicalGenerals) 
           : existingPatient.physicalGenerals;
           
-        const stringifiedMenstrualHistory = menstrualHistory !== undefined 
-          ? JSON.stringify(menstrualHistory) 
+        const stringifiedMenstrualHistory = requestMenstrualHistory !== undefined 
+          ? JSON.stringify(requestMenstrualHistory) 
           : existingPatient.menstrualHistory;
           
-        const stringifiedFoodAndHabit = foodAndHabit !== undefined 
-          ? JSON.stringify(foodAndHabit) 
+        const stringifiedFoodAndHabit = requestFoodAndHabit !== undefined 
+          ? JSON.stringify(requestFoodAndHabit) 
           : existingPatient.foodAndHabit;
 
         const updatedPatient = await prisma.patient.update({
