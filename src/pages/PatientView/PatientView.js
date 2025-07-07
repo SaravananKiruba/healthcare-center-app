@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Button,
@@ -82,6 +82,9 @@ const PatientView = ({ patientId }) => {
   // Find the patient with the given ID
   const patient = patients.find(p => p.id === currentPatientId);
   
+  // Check if current user can edit patient data - admins and doctors can edit, plus the user who created the patient
+  const canEdit = currentUser && (['admin', 'doctor'].includes(currentUser.role) || (patient && patient.userId === currentUser.id));
+  
   // Check if patient exists or if we're still waiting for data
   if (!currentPatientId || !patient) {
     return (
@@ -96,22 +99,8 @@ const PatientView = ({ patientId }) => {
       </Box>
     );
   }
-    // Format date for display
-  const formatDate = (dateString) => {
-    try {
-      if (!dateString) return "N/A";
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return dateString; // Return original string if invalid
-      
-      return new Intl.DateTimeFormat('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      }).format(date);
-    } catch (error) {
-      return dateString || "N/A";
-    }
-  };
+  
+  // Using the imported formatDate function from utils/dataTransform.js
   
   // Handle delete patient
   const handleDeletePatient = () => {
@@ -151,8 +140,7 @@ const PatientView = ({ patientId }) => {
     }
   };
 
-  // Check user permissions
-  const canEdit = ['admin', 'doctor'].includes(currentUser.role);
+  // Check delete permissions - only admins can delete
   const canDelete = currentUser.role === 'admin';
   
   return (
@@ -1178,80 +1166,356 @@ const FoodHabitsTab = ({ patient }) => {
 
 const InvestigationsTab = ({ patient, canEdit }) => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const investigations = patient.investigations || [];
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [currentInvestigation, setCurrentInvestigation] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const toast = useToast();
+  const { investigationsAPI } = useAppContext();
+  const [investigations, setInvestigations] = useState(patient.investigations || []);
+  
+  // Fetch investigations when component mounts or patient changes
+  useEffect(() => {
+    if (patient && patient.id) {
+      fetchInvestigations();
+    }
+  }, [patient]);
+
+  // Fetch investigations for the patient
+  const fetchInvestigations = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const data = await investigationsAPI.getAllInvestigations(patient.id);
+      setInvestigations(data);
+    } catch (error) {
+      console.error('Error fetching investigations:', error);
+      setError(error.message || 'Failed to load investigation data');
+      toast({
+        title: "Error fetching investigations",
+        description: error.message || 'Failed to load investigation data',
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Delete an investigation
+  const handleDeleteInvestigation = async (id) => {
+    if (window.confirm('Are you sure you want to delete this investigation?')) {
+      try {
+        await investigationsAPI.deleteInvestigation(id);
+        setInvestigations(investigations.filter(inv => inv.id !== id));
+        toast({
+          title: "Investigation deleted",
+          description: "The investigation has been successfully deleted.",
+          status: "success",
+          duration: 3000,
+          isClosable: true,
+        });
+      } catch (error) {
+        toast({
+          title: "Error deleting investigation",
+          description: error.message,
+          status: "error",
+          duration: 5000,
+          isClosable: true,
+        });
+      }
+    }
+  };
+
+  // Edit an investigation
+  const handleEditInvestigation = (investigation) => {
+    setCurrentInvestigation(investigation);
+    setIsEditModalOpen(true);
+  };
+
+  // Handle a new or updated investigation
+  const handleInvestigationSaved = (investigation) => {
+    if (currentInvestigation) {
+      // Update existing investigation in the list
+      setInvestigations(prev => 
+        prev.map(inv => inv.id === investigation.id ? investigation : inv)
+      );
+    } else {
+      // Add new investigation to the list
+      setInvestigations(prev => [...prev, investigation]);
+    }
+    
+    setIsAddModalOpen(false);
+    setIsEditModalOpen(false);
+    setCurrentInvestigation(null);
+  };
   
   return (
-    <Card>
-      <CardHeader bg="brand.50" py="3">
-        <Flex justify="space-between" align="center">
-          <Heading size="md">Investigations & Reports</Heading>
-          {canEdit && (
-            <Button 
-              size="sm" 
-              colorScheme="brand" 
-              leftIcon={<FiPlusCircle />}
-              onClick={() => setIsAddModalOpen(true)}
-            >
-              Add Report
-            </Button>
-          )}
-        </Flex>
-      </CardHeader>
-      <CardBody>
-        {investigations.length === 0 ? (
-          <Text textAlign="center" py="6" color="gray.500">
-            No investigation reports added yet.
-          </Text>
-        ) : (
-          <TableContainer>
-            <Table variant="simple">
-              <Thead>
-                <Tr>
-                  <Th>Date</Th>
-                  <Th>Type</Th>
-                  <Th>Details</Th>
-                  <Th>Actions</Th>
-                </Tr>
-              </Thead>
-              <Tbody>
-                {investigations.map((investigation) => (
-                  <Tr key={investigation.id}>
-                    <Td>{formatDate(investigation.date)}</Td>
-                    <Td>{investigation.type}</Td>
-                    <Td>{investigation.details}</Td>
-                    <Td>
-                      <HStack spacing="2">
-                        {investigation.fileUrl && (
-                          <IconButton
-                            aria-label="View file"
-                            icon={<FiFileText />}
-                            size="sm"
-                            variant="ghost"
-                            as="a"
-                            href={investigation.fileUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                          />
-                        )}
-                        {canEdit && (
-                          <IconButton
-                            aria-label="Delete investigation"
-                            icon={<FiTrash2 />}
-                            size="sm"
-                            colorScheme="red"
-                            variant="ghost"
-                          />
-                        )}
-                      </HStack>
-                    </Td>
+    <>
+      <Card>
+        <CardHeader bg="brand.50" py="3">
+          <Flex justify="space-between" align="center">
+            <Heading size="md">Investigations & Reports</Heading>
+            {canEdit && (
+              <Button 
+                size="sm" 
+                colorScheme="brand" 
+                leftIcon={<FiPlusCircle />}
+                onClick={() => setIsAddModalOpen(true)}
+              >
+                Add Report
+              </Button>
+            )}
+          </Flex>
+        </CardHeader>
+        <CardBody>
+          {isLoading ? (
+            <Flex justify="center" align="center" py="6">
+              <Text>Loading investigations...</Text>
+            </Flex>
+          ) : error ? (
+            <Box textAlign="center" py="6" color="red.500">
+              <Text fontWeight="medium">Error: {error}</Text>
+              <Button 
+                mt={4} 
+                size="sm" 
+                onClick={fetchInvestigations} 
+                colorScheme="brand"
+              >
+                Try Again
+              </Button>
+            </Box>
+          ) : investigations.length === 0 ? (
+            <Text textAlign="center" py="6" color="gray.500">
+              No investigation reports added yet.
+            </Text>
+          ) : (
+            <TableContainer>
+              <Table variant="simple">
+                <Thead>
+                  <Tr>
+                    <Th>Date</Th>
+                    <Th>Type</Th>
+                    <Th>Details</Th>
+                    <Th>Actions</Th>
                   </Tr>
-                ))}
-              </Tbody>
-            </Table>
-          </TableContainer>
-        )}
-      </CardBody>
-    </Card>
+                </Thead>
+                <Tbody>
+                  {investigations.map((investigation) => (
+                    <Tr key={investigation.id}>
+                      <Td>{formatDate(investigation.date)}</Td>
+                      <Td>{investigation.type}</Td>
+                      <Td>{investigation.details}</Td>
+                      <Td>
+                        <HStack spacing="2">
+                          {investigation.fileUrl && (
+                            <IconButton
+                              aria-label="View file"
+                              icon={<FiFileText />}
+                              size="sm"
+                              variant="ghost"
+                              as="a"
+                              href={investigation.fileUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                            />
+                          )}
+                          {canEdit && (
+                            <>
+                              <IconButton
+                                aria-label="Edit investigation"
+                                icon={<FiEdit />}
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleEditInvestigation(investigation)}
+                              />
+                              <IconButton
+                                aria-label="Delete investigation"
+                                icon={<FiTrash2 />}
+                                size="sm"
+                                colorScheme="red"
+                                variant="ghost"
+                                onClick={() => handleDeleteInvestigation(investigation.id)}
+                              />
+                            </>
+                          )}
+                        </HStack>
+                      </Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            </TableContainer>
+          )}
+        </CardBody>
+      </Card>
+      
+      {/* Add/Edit Investigation Modal */}
+      <InvestigationFormModal
+        isOpen={isAddModalOpen || isEditModalOpen}
+        onClose={() => {
+          setIsAddModalOpen(false);
+          setIsEditModalOpen(false);
+          setCurrentInvestigation(null);
+        }}
+        patientId={patient.id}
+        investigation={currentInvestigation}
+        onSave={handleInvestigationSaved}
+      />
+    </>
+  );
+};
+
+// Create investigation form modal component
+const InvestigationFormModal = ({ isOpen, onClose, patientId, investigation, onSave }) => {
+  const toast = useToast();
+  const { investigationsAPI } = useAppContext();
+  const isEditing = !!investigation;
+  
+  // Initialize form validation schema
+  const validationSchema = Yup.object({
+    type: Yup.string().required('Investigation type is required'),
+    details: Yup.string().required('Details are required'),
+    date: Yup.date().required('Date is required').max(new Date(), 'Date cannot be in the future'),
+    fileUrl: Yup.string().url('Must be a valid URL').nullable()
+  });
+  
+  // Initialize formik for form handling
+  const formik = useFormik({
+    initialValues: {
+      type: investigation?.type || '',
+      details: investigation?.details || '',
+      date: investigation?.date ? new Date(investigation.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      fileUrl: investigation?.fileUrl || '',
+    },
+    validationSchema,
+    onSubmit: async (values) => {
+      try {
+        let result;
+        
+        if (isEditing) {
+          // Update existing investigation
+          result = await investigationsAPI.updateInvestigation(investigation.id, {
+            ...values,
+            patientId,
+          });
+          toast({
+            title: "Investigation updated",
+            description: "The investigation has been successfully updated.",
+            status: "success",
+            duration: 3000,
+            isClosable: true,
+          });
+        } else {
+          // Create new investigation
+          result = await investigationsAPI.createInvestigation({
+            ...values,
+            patientId,
+          });
+          toast({
+            title: "Investigation added",
+            description: "The investigation has been successfully added.",
+            status: "success",
+            duration: 3000,
+            isClosable: true,
+          });
+        }
+        
+        onSave(result);
+      } catch (error) {
+        toast({
+          title: isEditing ? "Error updating investigation" : "Error adding investigation",
+          description: error.message,
+          status: "error",
+          duration: 5000,
+          isClosable: true,
+        });
+      }
+    },
+  });
+  
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} size="md">
+      <ModalOverlay />
+      <ModalContent>
+        <ModalHeader>
+          {isEditing ? 'Edit Investigation' : 'Add New Investigation'}
+        </ModalHeader>
+        <ModalCloseButton />
+        
+        <ModalBody>
+          <form onSubmit={formik.handleSubmit}>
+            <VStack spacing={4}>
+              <FormControl isInvalid={formik.touched.type && formik.errors.type}>
+                <FormLabel htmlFor="type">Investigation Type</FormLabel>
+                <Select
+                  id="type"
+                  placeholder="Select type"
+                  {...formik.getFieldProps('type')}
+                >
+                  <option value="Blood Test">Blood Test</option>
+                  <option value="Urine Test">Urine Test</option>
+                  <option value="X-Ray">X-Ray</option>
+                  <option value="CT Scan">CT Scan</option>
+                  <option value="MRI">MRI</option>
+                  <option value="Ultrasound">Ultrasound</option>
+                  <option value="ECG">ECG</option>
+                  <option value="EEG">EEG</option>
+                  <option value="Other">Other</option>
+                </Select>
+                <FormErrorMessage>{formik.errors.type}</FormErrorMessage>
+              </FormControl>
+              
+              <FormControl isInvalid={formik.touched.date && formik.errors.date}>
+                <FormLabel htmlFor="date">Date</FormLabel>
+                <Input
+                  id="date"
+                  type="date"
+                  {...formik.getFieldProps('date')}
+                />
+                <FormErrorMessage>{formik.errors.date}</FormErrorMessage>
+              </FormControl>
+              
+              <FormControl isInvalid={formik.touched.details && formik.errors.details}>
+                <FormLabel htmlFor="details">Details</FormLabel>
+                <Textarea
+                  id="details"
+                  placeholder="Enter investigation details"
+                  {...formik.getFieldProps('details')}
+                />
+                <FormErrorMessage>{formik.errors.details}</FormErrorMessage>
+              </FormControl>
+              
+              <FormControl isInvalid={formik.touched.fileUrl && formik.errors.fileUrl}>
+                <FormLabel htmlFor="fileUrl">File URL (Optional)</FormLabel>
+                <Input
+                  id="fileUrl"
+                  type="url"
+                  placeholder="https://example.com/file.pdf"
+                  {...formik.getFieldProps('fileUrl')}
+                />
+                <FormErrorMessage>{formik.errors.fileUrl}</FormErrorMessage>
+              </FormControl>
+            </VStack>
+            
+            <ModalFooter px={0}>
+              <Button mr={3} onClick={onClose} variant="ghost">
+                Cancel
+              </Button>
+              <Button 
+                type="submit" 
+                colorScheme="brand" 
+                isLoading={formik.isSubmitting}
+                leftIcon={isEditing ? <FiSave /> : <FiPlusCircle />}
+              >
+                {isEditing ? 'Save Changes' : 'Add Investigation'}
+              </Button>
+            </ModalFooter>
+          </form>
+        </ModalBody>
+      </ModalContent>
+    </Modal>
   );
 };
 
