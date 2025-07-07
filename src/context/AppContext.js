@@ -313,6 +313,10 @@ export const AppProvider = ({ children }) => {
     clearError,
     refreshData,
     checkApiHealth,
+    
+    // API services
+    patientsAPI,
+    investigationsAPI,
   };
 
   return (

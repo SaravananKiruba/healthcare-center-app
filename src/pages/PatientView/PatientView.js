@@ -1171,8 +1171,8 @@ const InvestigationsTab = ({ patient, canEdit }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const toast = useToast();
-  const { investigationsAPI } = useAppContext();
-  const [investigations, setInvestigations] = useState(patient.investigations || []);
+  const { investigationsAPI, addInvestigation } = useAppContext();
+  const [investigations, setInvestigations] = useState([]);
   
   // Fetch investigations when component mounts or patient changes
   useEffect(() => {
@@ -1186,8 +1186,19 @@ const InvestigationsTab = ({ patient, canEdit }) => {
     try {
       setIsLoading(true);
       setError(null);
+      console.log('Fetching investigations for patient ID:', patient.id);
       const data = await investigationsAPI.getAllInvestigations(patient.id);
-      setInvestigations(data);
+      console.log('Investigations fetched:', data);
+      
+      // Handle potential null or undefined data
+      if (data && Array.isArray(data)) {
+        setInvestigations(data);
+      } else if (data && data.investigations && Array.isArray(data.investigations)) {
+        setInvestigations(data.investigations);
+      } else {
+        console.warn('Invalid investigations data format:', data);
+        setInvestigations([]);
+      }
     } catch (error) {
       console.error('Error fetching investigations:', error);
       setError(error.message || 'Failed to load investigation data');
@@ -1370,7 +1381,7 @@ const InvestigationsTab = ({ patient, canEdit }) => {
 // Create investigation form modal component
 const InvestigationFormModal = ({ isOpen, onClose, patientId, investigation, onSave }) => {
   const toast = useToast();
-  const { investigationsAPI } = useAppContext();
+  const { investigationsAPI, addInvestigation } = useAppContext();
   const isEditing = !!investigation;
   
   // Initialize form validation schema
@@ -1408,8 +1419,9 @@ const InvestigationFormModal = ({ isOpen, onClose, patientId, investigation, onS
             isClosable: true,
           });
         } else {
-          // Create new investigation
-          result = await investigationsAPI.createInvestigation({
+          // Create new investigation using addInvestigation from context
+          // This ensures consistent state management
+          result = await addInvestigation({
             ...values,
             patientId,
           });

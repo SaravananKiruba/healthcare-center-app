@@ -417,11 +417,24 @@ export const patientsAPI = {
 export const investigationsAPI = {
   getAllInvestigations: async (patientId = null) => {
     try {
+      console.log('API call: getAllInvestigations, patientId:', patientId);
       const params = patientId ? { patientId } : {};
-      const response = await api.get('/investigations', { params });
+      
+      // Use direct axios call to ensure we have full control over the request
+      const response = await axios.get(`${BASE_URL}/api/investigations`, { 
+        params,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      console.log('API response for investigations:', response.status, response.data);
       return response.data;
     } catch (error) {
       console.error('Failed to fetch investigations:', error);
+      if (error.response) {
+        console.error('Error response:', error.response.status, error.response.data);
+      }
       throw error;
     }
   },
@@ -455,7 +468,10 @@ export const investigationsAPI = {
         patientId: data.patientId,
         type: data.type,
         details: data.details,
-        date: data.date instanceof Date ? data.date.toISOString() : data.date,
+        // Ensure date is in the correct format
+        date: data.date instanceof Date 
+              ? data.date.toISOString() 
+              : new Date(data.date).toISOString(),
         fileUrl: data.fileUrl || null
       };
       
@@ -468,9 +484,13 @@ export const investigationsAPI = {
         }
       });
       
+      console.log('Investigation created:', response.status, response.data);
       return response.data;
     } catch (error) {
       console.error('Failed to create investigation:', error);
+      if (error.response) {
+        console.error('Error response:', error.response.status, error.response.data);
+      }
       throw error;
     }
   },
