@@ -2,9 +2,13 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
+  "/api/auth/[...nextauth]": "pages/api/auth/[...nextauth].js",
+  "/doctor-dashboard": "pages/doctor-dashboard.js",
+  "/api/patients": "pages/api/patients.js",
   "/patients": "pages/patients.js",
   "/api/investigations": "pages/api/investigations.js",
-  "/settings": "pages/settings.js",
-  "/patient/[id]": "pages/patient/[id].js",
-  "/api/auth/[...nextauth]": "pages/api/auth/[...nextauth].js"
+  "/search": "pages/search.js",
+  "/login": "pages/login.js",
+  "/reports": "pages/reports.js",
+  "/patient/[id]": "pages/patient/[id].js"
 }
