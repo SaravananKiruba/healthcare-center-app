@@ -31,11 +31,15 @@ import {
   Card,
   CardHeader,
   CardBody,
+  Divider,
+  Spinner,
 } from '@chakra-ui/react';
 import { FiPlus, FiEdit, FiUsers } from 'react-icons/fi';
 import { UserService } from '../../lib/api';
 import { useAuth } from '../../lib/auth/AuthContext';
+import { useSession } from 'next-auth/react';
 import { AUTH_CONFIG } from '../../config';
+import apiClient from '../../lib/api/client';
 
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
@@ -45,11 +49,18 @@ const UserManagement = () => {
   const toast = useToast();
   const { hasRole } = useAuth();
 
+  const [clinics, setClinics] = useState([]);
+  const [branches, setBranches] = useState([]);
+  const [loadingTenants, setLoadingTenants] = useState(false);
+  const { data: session } = useSession();
+
   const [formData, setFormData] = useState({
     email: '',
     fullName: '',
     password: '',
     role: AUTH_CONFIG.roles.DOCTOR,
+    clinicId: '',
+    branchId: '',
   });
 
   const fetchUsers = useCallback(async () => {
@@ -70,11 +81,72 @@ const UserManagement = () => {
     }
   }, [toast]);
 
-  useEffect(() => {
-    if (hasRole(AUTH_CONFIG.roles.ADMIN)) {
-      fetchUsers();
+  // Fetch clinics for dropdown
+  const fetchClinics = useCallback(async () => {
+    try {
+      setLoadingTenants(true);
+      const response = await apiClient.get('/api/clinics');
+      setClinics(response.data);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch clinics',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setLoadingTenants(false);
     }
-  }, [hasRole, fetchUsers]);
+  }, [toast]);
+
+  // Fetch branches for dropdown based on selected clinic
+  const fetchBranches = useCallback(async (clinicId) => {
+    if (!clinicId) {
+      setBranches([]);
+      return;
+    }
+    
+    try {
+      setLoadingTenants(true);
+      const response = await apiClient.get('/api/branches', {
+        params: { clinicId }
+      });
+      setBranches(response.data);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch branches',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+      setBranches([]);
+    } finally {
+      setLoadingTenants(false);
+    }
+  }, [toast]);
+  
+  // Handle clinic change in form
+  const handleClinicChange = (e) => {
+    const clinicId = e.target.value;
+    setFormData({ 
+      ...formData, 
+      clinicId,
+      branchId: '' // Reset branch when clinic changes
+    });
+    
+    fetchBranches(clinicId);
+  };
+
+  useEffect(() => {
+    // Check if user has role with appropriate permissions
+    const validRoles = ['superadmin', 'clinicadmin', 'branchadmin', 'admin'];
+    if (validRoles.includes(session?.user?.role)) {
+      fetchUsers();
+      fetchClinics();
+    }
+  }, [session, fetchUsers, fetchClinics]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -124,7 +196,15 @@ const UserManagement = () => {
       fullName: user.fullName,
       password: '',
       role: user.role,
+      clinicId: user.clinicId || '',
+      branchId: user.branchId || '',
     });
+    
+    // Fetch branches for the selected clinic
+    if (user.clinicId) {
+      fetchBranches(user.clinicId);
+    }
+    
     onOpen();
   };
 
@@ -135,19 +215,27 @@ const UserManagement = () => {
       fullName: '',
       password: '',
       role: AUTH_CONFIG.roles.DOCTOR,
+      clinicId: '',
+      branchId: '',
     });
+    setBranches([]);
     onClose();
   };
 
   const getRoleBadgeColor = (role) => {
     switch (role) {
-      case AUTH_CONFIG.roles.ADMIN: return 'red';
-      case AUTH_CONFIG.roles.DOCTOR: return 'green';
+      case 'superadmin': return 'red';
+      case 'clinicadmin': return 'blue';
+      case 'branchadmin': return 'purple';
+      case 'doctor': return 'green';
+      case 'admin': return 'orange'; // Legacy support
       default: return 'gray';
     }
   };
 
-  if (!hasRole(AUTH_CONFIG.roles.ADMIN)) {
+  // Allow access to superadmin, clinicadmin, branchadmin, and legacy admin
+  const validRoles = ['superadmin', 'clinicadmin', 'branchadmin', 'admin'];
+  if (!session?.user?.role || !validRoles.includes(session.user.role)) {
     return (
       <Box p={6}>
         <Card>
@@ -266,8 +354,47 @@ const UserManagement = () => {
                     value={formData.role}
                     onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                   >
-                    <option value={AUTH_CONFIG.roles.DOCTOR}>Doctor</option>
-                    <option value={AUTH_CONFIG.roles.ADMIN}>Admin</option>
+                    {session?.user?.role === 'superadmin' && (
+                      <>
+                        <option value="superadmin">Super Admin</option>
+                        <option value="clinicadmin">Clinic Admin</option>
+                      </>
+                    )}
+                    {(session?.user?.role === 'superadmin' || session?.user?.role === 'clinicadmin') && (
+                      <option value="branchadmin">Branch Admin</option>
+                    )}
+                    <option value="doctor">Doctor</option>
+                  </Select>
+                </FormControl>
+
+                <Divider my={2} />
+                
+                {/* Tenant Selection */}
+                <FormControl isRequired={formData.role !== 'superadmin'}>
+                  <FormLabel>Clinic</FormLabel>
+                  <Select
+                    value={formData.clinicId}
+                    onChange={handleClinicChange}
+                    placeholder="Select clinic"
+                    isDisabled={formData.role === 'superadmin' || loadingTenants}
+                  >
+                    {clinics.map((clinic) => (
+                      <option key={clinic.id} value={clinic.id}>{clinic.name}</option>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <FormControl isRequired={['branchadmin', 'doctor'].includes(formData.role)}>
+                  <FormLabel>Branch</FormLabel>
+                  <Select
+                    value={formData.branchId}
+                    onChange={(e) => setFormData({ ...formData, branchId: e.target.value })}
+                    placeholder="Select branch"
+                    isDisabled={!formData.clinicId || loadingTenants || ['superadmin', 'clinicadmin'].includes(formData.role)}
+                  >
+                    {branches.map((branch) => (
+                      <option key={branch.id} value={branch.id}>{branch.name}</option>
+                    ))}
                   </Select>
                 </FormControl>
               </VStack>

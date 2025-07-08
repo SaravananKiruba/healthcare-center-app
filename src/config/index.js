@@ -20,13 +20,17 @@ export const API_CONFIG = {
 export const AUTH_CONFIG = {
   // User roles
   roles: {
-    ADMIN: 'admin',
+    SUPERADMIN: 'superadmin',
+    CLINICADMIN: 'clinicadmin',
+    BRANCHADMIN: 'branchadmin',
     DOCTOR: 'doctor',
   },
   
   // Routes based on user roles
   routes: {
-    admin: '/admin-dashboard',
+    superadmin: '/admin-dashboard',
+    clinicadmin: '/admin-dashboard',
+    branchadmin: '/admin-dashboard',
     doctor: '/doctor-dashboard',
     default: '/login',
   }

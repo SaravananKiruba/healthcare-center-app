@@ -1,14 +1,1 @@
-{
-  "/_app": "pages/_app.js",
-  "/_error": "pages/_error.js",
-  "/_document": "pages/_document.js",
-  "/api/auth/[...nextauth]": "pages/api/auth/[...nextauth].js",
-  "/doctor-dashboard": "pages/doctor-dashboard.js",
-  "/api/patients": "pages/api/patients.js",
-  "/patients": "pages/patients.js",
-  "/api/investigations": "pages/api/investigations.js",
-  "/search": "pages/search.js",
-  "/login": "pages/login.js",
-  "/reports": "pages/reports.js",
-  "/patient/[id]": "pages/patient/[id].js"
-}
+{"/_app":"pages/_app.js","/_error":"pages/_error.js","/admin-dashboard":"pages/admin-dashboard.html","/api/branches/[id]":"pages/api/branches/[id].js","/api/branches":"pages/api/branches.js","/api/clinics/[id]":"pages/api/clinics/[id].js","/api/clinics":"pages/api/clinics.js","/api/dashboard/stats":"pages/api/dashboard/stats.js","/api/health":"pages/api/health.js","/api/investigations":"pages/api/investigations.js","/api/investigations/[id]":"pages/api/investigations/[id].js","/api/patients/[id]":"pages/api/patients/[id].js","/api/users":"pages/api/users.js","/api/patients":"pages/api/patients.js","/api/users/me":"pages/api/users/me.js","/doctor-dashboard":"pages/doctor-dashboard.html","/":"pages/index.html","/login":"pages/login.html","/patient/[id]":"pages/patient/[id].html","/patient/register":"pages/patient/register.html","/patients":"pages/patients.html","/reports":"pages/reports.html","/search":"pages/search.html","/settings":"pages/settings.html","/user-management":"pages/user-management.html","/api/auth/[...nextauth]":"pages/api/auth/[...nextauth].js","/_document":"pages/_document.js","/404":"pages/404.html"}

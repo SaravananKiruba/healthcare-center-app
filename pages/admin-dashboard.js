@@ -1,11 +1,11 @@
 import React from 'react';
 import MainLayout from '@/components/layout/MainLayout';
-import Dashboard from '../src/pages/Dashboard/Dashboard';
+import Dashboard from '@/components/dashboard/Dashboard';
 import { ProtectedRoute } from '@/lib/auth';
 
 export default function AdminDashboard() {
   return (
-    <ProtectedRoute roles={['admin']} redirectTo="/login">
+    <ProtectedRoute roles={['superadmin', 'clinicadmin', 'branchadmin']} redirectTo="/login">
       <MainLayout>
         <Dashboard />
       </MainLayout>

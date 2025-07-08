@@ -10,15 +10,59 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// New model for SaaS Clinic
+model Clinic {
+  id          String    @id @default(cuid())
+  name        String
+  address     String
+  contactEmail String
+  contactPhone String
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Relations
+  branches    Branch[]
+  users       User[]
+  
+  @@map("clinics")
+}
+
+// New model for Branch
+model Branch {
+  id          String    @id @default(cuid())
+  name        String
+  address     String
+  contactEmail String
+  contactPhone String
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Relations
+  clinicId    String
+  clinic      Clinic    @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  users       User[]
+  patients    Patient[]
+  
+  @@map("branches")
+}
+
 model User {
   id             String    @id @default(cuid())
   email          String    @unique
   hashedPassword String
   fullName       String?
-  role           String    @default("doctor") // admin, doctor
+  role           String    @default("doctor") // SUPERADMIN, CLINICADMIN, BRANCHADMIN, DOCTOR
   isActive       Boolean   @default(true)
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+  
+  // New relations for multi-tenant architecture
+  clinicId       String?
+  clinic         Clinic?    @relation(fields: [clinicId], references: [id], onDelete: SetNull)
+  branchId       String?
+  branch         Branch?    @relation(fields: [branchId], references: [id], onDelete: SetNull)
   
   patients       Patient[]
   
@@ -47,6 +91,11 @@ model Patient {
   // Relations
   userId           String
   user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // New relations for multi-tenant architecture
+  branchId         String
+  branch           Branch          @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  
   investigations   Investigation[]
   
   @@map("patients")

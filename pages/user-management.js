@@ -1,6 +1,6 @@
 import React from 'react';
 import MainLayout from '@/components/layout/MainLayout';
-import UserManagement from '@/components/UserManagement/UserManagement';
+import { UserManagement } from '@/components/admin';
 import { ProtectedRoute } from '@/lib/auth';
 
 export default function UserManagementPage() {

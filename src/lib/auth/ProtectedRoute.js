@@ -47,13 +47,25 @@ const ProtectedRoute = ({
   // User doesn't have the required role
   if (!userHasRequiredRole) {
     useEffect(() => {
-      // Redirect to the appropriate dashboard based on role
-      const dashboardPath = session.user.role === 'admin' 
-        ? '/admin-dashboard' 
-        : '/doctor-dashboard';
+      // Get the appropriate dashboard based on role
+      let dashboardPath;
+      
+      // Map the role to the appropriate dashboard
+      switch (session.user.role) {
+        case 'superadmin':
+        case 'clinicadmin':
+        case 'branchadmin':
+          dashboardPath = '/admin-dashboard';
+          break;
+        case 'doctor':
+          dashboardPath = '/doctor-dashboard';
+          break;
+        default:
+          dashboardPath = '/login';
+      }
         
       router.replace(dashboardPath);
-    }, [router]);
+    }, [router, session.user.role]);
     
     return null;
   }

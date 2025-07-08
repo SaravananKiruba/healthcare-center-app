@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Box,
   SimpleGrid,
@@ -13,13 +13,20 @@ import {
   useColorModeValue,
   Card,
   CardBody,
+  Badge,
+  Spinner,
+  useToast,
 } from '@chakra-ui/react';
 import { 
   FiUsers,
   FiActivity,
   FiCalendar,
   FiFileText,
+  FiHome,
+  FiTrendingUp,
 } from 'react-icons/fi';
+import { useSession } from 'next-auth/react';
+import { getDashboardStats } from '@/lib/api/dashboard';
 
 // Stat card component
 const StatCard = ({ title, stat, icon, helpText, accentColor }) => {
@@ -59,13 +66,26 @@ const StatCard = ({ title, stat, icon, helpText, accentColor }) => {
   );
 };
 
-// Admin Dashboard Component
-const AdminDashboard = ({ stats }) => {
+// SuperAdmin Dashboard Component
+const SuperAdminDashboard = ({ stats }) => {
   return (
     <Box p={6}>
-      <Heading size="lg" mb={6}>Admin Dashboard</Heading>
+      <Heading size="lg" mb={2}>Super Admin Dashboard</Heading>
+      <Badge colorScheme="red" mb={6}>SaaS Platform Administration</Badge>
       
       <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={6}>
+        <StatCard
+          title="Total Clinics"
+          stat={stats.clinicCount || 0}
+          icon={FiHome}
+          accentColor="teal.500"
+        />
+        <StatCard
+          title="Total Branches"
+          stat={stats.branchCount || 0}
+          icon={FiTrendingUp}
+          accentColor="cyan.500"
+        />
         <StatCard
           title="Total Users"
           stat={stats.userCount || 0}
@@ -105,11 +125,94 @@ const AdminDashboard = ({ stats }) => {
   );
 };
 
-// Doctor Dashboard Component
-const DoctorDashboard = ({ stats }) => {
+// Clinic Admin Dashboard Component
+const ClinicAdminDashboard = ({ stats, clinicName }) => {
   return (
     <Box p={6}>
-      <Heading size="lg" mb={6}>Doctor Dashboard</Heading>
+      <Heading size="lg" mb={2}>Clinic Admin Dashboard</Heading>
+      {clinicName && <Badge colorScheme="blue" mb={6}>{clinicName}</Badge>}
+      
+      <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={6}>
+        <StatCard
+          title="Total Branches"
+          stat={stats.branchCount || 0}
+          icon={FiTrendingUp}
+          accentColor="cyan.500"
+        />
+        <StatCard
+          title="Total Users"
+          stat={stats.userCount || 0}
+          icon={FiUsers}
+          accentColor="blue.500"
+        />
+        <StatCard
+          title="Total Patients"
+          stat={stats.patientCount || 0}
+          icon={FiUsers}
+          accentColor="green.500"
+        />
+        <StatCard
+          title="Investigations"
+          stat={stats.investigationCount || 0}
+          icon={FiFileText}
+          accentColor="purple.500"
+        />
+        <StatCard
+          title="Recent Activity"
+          stat={stats.recentActivity || 0}
+          icon={FiActivity}
+          helpText="Last 30 days"
+          accentColor="orange.500"
+        />
+      </SimpleGrid>
+    </Box>
+  );
+};
+
+// Branch Admin Dashboard Component
+const BranchAdminDashboard = ({ stats, branchName }) => {
+  return (
+    <Box p={6}>
+      <Heading size="lg" mb={2}>Branch Admin Dashboard</Heading>
+      {branchName && <Badge colorScheme="green" mb={6}>{branchName}</Badge>}
+      
+      <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={6}>
+        <StatCard
+          title="Total Users"
+          stat={stats.userCount || 0}
+          icon={FiUsers}
+          accentColor="blue.500"
+        />
+        <StatCard
+          title="Total Patients"
+          stat={stats.patientCount || 0}
+          icon={FiUsers}
+          accentColor="green.500"
+        />
+        <StatCard
+          title="Investigations"
+          stat={stats.investigationCount || 0}
+          icon={FiFileText}
+          accentColor="purple.500"
+        />
+        <StatCard
+          title="Recent Activity"
+          stat={stats.recentActivity || 0}
+          icon={FiActivity}
+          helpText="Last 30 days"
+          accentColor="orange.500"
+        />
+      </SimpleGrid>
+    </Box>
+  );
+};
+
+// Doctor Dashboard Component
+const DoctorDashboard = ({ stats, branchName }) => {
+  return (
+    <Box p={6}>
+      <Heading size="lg" mb={2}>Doctor Dashboard</Heading>
+      {branchName && <Badge colorScheme="purple" mb={6}>{branchName}</Badge>}
       
       <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={6}>
         <StatCard
@@ -142,4 +245,63 @@ const DoctorDashboard = ({ stats }) => {
   );
 };
 
-export { AdminDashboard, DoctorDashboard };
+// Main Dashboard Component
+const Dashboard = () => {
+  const { data: session } = useSession();
+  const [stats, setStats] = useState({});
+  const [loading, setLoading] = useState(true);
+  const toast = useToast();
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        setLoading(true);
+        const dashboardStats = await getDashboardStats();
+        setStats(dashboardStats);
+      } catch (error) {
+        toast({
+          title: 'Error',
+          description: 'Failed to load dashboard statistics',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, [toast]);
+
+  if (loading) {
+    return (
+      <Flex justifyContent="center" alignItems="center" minHeight="50vh" direction="column">
+        <Spinner size="xl" thickness="4px" speed="0.65s" color="blue.500" />
+        <Text mt={4}>Loading dashboard...</Text>
+      </Flex>
+    );
+  }
+
+  // Determine which dashboard to show based on role
+  if (!session?.user) {
+    return <Text>No user session available</Text>;
+  }
+
+  const { role, clinicName, branchName } = session.user;
+
+  switch (role) {
+    case 'superadmin':
+      return <SuperAdminDashboard stats={stats} />;
+    case 'clinicadmin':
+      return <ClinicAdminDashboard stats={stats} clinicName={clinicName} />;
+    case 'branchadmin':
+      return <BranchAdminDashboard stats={stats} branchName={branchName} />;
+    case 'doctor':
+    default:
+      return <DoctorDashboard stats={stats} branchName={branchName} />;
+  }
+};
+
+export default Dashboard;
+export { SuperAdminDashboard, ClinicAdminDashboard, BranchAdminDashboard, DoctorDashboard };

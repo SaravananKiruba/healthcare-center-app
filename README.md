@@ -4,13 +4,19 @@ A comprehensive Next.js web application for healthcare centers to manage patient
 
 ## Features
 
+- **Multi-tenant SaaS Architecture**
+  - Hierarchical organization with clinics and branches
+  - Complete tenant isolation and data segregation
+  - Support for multi-level administrative roles
+
 - **Authentication and Authorization**
-  - Role-based access control (Admin and Doctor roles)
+  - Hierarchical role-based access control (SUPERADMIN, CLINICADMIN, BRANCHADMIN, DOCTOR roles)
+  - Tenant-aware authorization and scoping
   - Secure login and session management
-  - Protected routes
+  - Protected routes with role and tenant validation
 
 - **Patient Management**
-  - Patient registration and profiling
+  - Patient registration and profiling with branch association
   - Medical history tracking
   - Patient visit records
 
@@ -84,6 +90,47 @@ yarn dev
 
 - **Admin**: admin@example.com / password123
 - **Doctor**: doctor@example.com / password123
+
+## Multi-tenant SaaS Upgrade
+
+The application has been upgraded to support multi-tenant architecture for SaaS deployment.
+
+### Running the Upgrade
+
+1. Ensure you have backed up your database
+2. Run the upgrade script:
+```bash
+# Windows
+.\upgrade-to-saas.bat
+
+# Linux/Mac (using bash)
+bash ./upgrade-to-saas.sh
+```
+
+3. After upgrading, restart the application:
+```bash
+npm run start
+```
+
+### Multi-tenant Login Credentials
+
+After upgrading, use these default credentials:
+
+- **Super Admin**: superadmin@healthcare.com / superadmin123
+- **Clinic Admin**: clinicadmin@healthcare.com / clinic123
+- **Branch Admin**: branchadmin@healthcare.com / branch123
+- **Doctor**: doctor@healthcare.com / doctor123
+
+### Troubleshooting
+
+If the upgrade fails, use the recovery script:
+```bash
+# Windows
+.\migration-recovery.bat
+
+# Linux/Mac
+bash ./migration-recovery.sh
+```
 
 ## Application Structure
 

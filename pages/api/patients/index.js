@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../auth/[...nextauth]';
+import { applyTenantScope, hasAccessToResource } from '@/utils/tenantScoping';
 
 const prisma = new PrismaClient();
 
@@ -191,25 +192,41 @@ export default async function handler(req, res) {
   try {
     switch (req.method) {
       case 'GET':
-        const patients = await prisma.patient.findMany({
-          where: {
-            userId: session.user.id
-          },
-          include: {
-            investigations: true,
-            user: {
-              select: {
-                id: true,
-                email: true,
-                fullName: true,
-                role: true
+        // Use the tenant scoping utility to build the query
+        const queryParams = applyTenantScope(
+          {
+            include: {
+              investigations: true,
+              user: {
+                select: {
+                  id: true,
+                  email: true,
+                  fullName: true,
+                  role: true
+                }
+              },
+              branch: {
+                select: {
+                  id: true,
+                  name: true,
+                  clinic: {
+                    select: {
+                      id: true,
+                      name: true
+                    }
+                  }
+                }
               }
+            },
+            orderBy: {
+              createdAt: 'desc'
             }
           },
-          orderBy: {
-            createdAt: 'desc'
-          }
-        });
+          session,
+          { includePatientFilter: true }
+        );
+        
+        const patients = await prisma.patient.findMany(queryParams);
 
         // Transform data to match frontend expectations
         const transformedPatients = patients.map(patient => {
@@ -386,6 +403,15 @@ export default async function handler(req, res) {
             }
           }
           
+          // Make sure user has a branch assigned
+          if (!session.user.branchId) {
+            return res.status(400).json({
+              error: 'Missing branch',
+              message: 'You must be assigned to a branch to register patients',
+              details: 'User is not associated with any branch'
+            });
+          }
+          
           // Prepare data for patient creation
           const patientData = {
             name,
@@ -401,7 +427,9 @@ export default async function handler(req, res) {
             menstrualHistory: stringifiedMenstrualHistory,
             foodAndHabit: stringifiedFoodAndHabit,
             // Use the userId field directly
-            userId: session.user.id
+            userId: session.user.id,
+            // Add branch information
+            branchId: session.user.branchId
           };
           
           console.log('Final patient data for creation:', JSON.stringify(patientData));

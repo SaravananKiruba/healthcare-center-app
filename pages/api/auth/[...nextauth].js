@@ -5,7 +5,7 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-export default NextAuth({
+export const authOptions = {
   providers: [
     CredentialsProvider({
       name: 'credentials',
@@ -18,9 +18,14 @@ export default NextAuth({
           throw new Error('Invalid credentials');
         }
 
+        // Include clinic and branch information in the user query
         const user = await prisma.user.findUnique({
           where: {
             email: credentials.email
+          },
+          include: {
+            clinic: true,
+            branch: true
           }
         });
 
@@ -37,11 +42,17 @@ export default NextAuth({
           throw new Error('Invalid credentials');
         }
 
+        // Return additional tenant information
         return {
           id: user.id,
           email: user.email,
           name: user.fullName,
           role: user.role,
+          clinicId: user.clinicId,
+          branchId: user.branchId,
+          // Include clinic and branch basic info if available
+          clinicName: user.clinic?.name,
+          branchName: user.branch?.name
         };
       }
     })
@@ -52,15 +63,25 @@ export default NextAuth({
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
+        // Include tenant information in the JWT
         token.role = user.role;
         token.id = user.id;
+        token.clinicId = user.clinicId;
+        token.branchId = user.branchId;
+        token.clinicName = user.clinicName;
+        token.branchName = user.branchName;
       }
       return token;
     },
     async session({ session, token }) {
       if (token) {
+        // Include tenant information in the session
         session.user.id = token.id;
         session.user.role = token.role;
+        session.user.clinicId = token.clinicId;
+        session.user.branchId = token.branchId;
+        session.user.clinicName = token.clinicName;
+        session.user.branchName = token.branchName;
       }
       return session;
     },
@@ -69,4 +90,6 @@ export default NextAuth({
     signIn: '/login',
   },
   secret: process.env.NEXTAUTH_SECRET,
-});
+};
+
+export default NextAuth(authOptions);

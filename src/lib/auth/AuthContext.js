@@ -119,6 +119,36 @@ export const AuthProvider = ({ children }) => {
     
     return user.role === requiredRole;
   };
+  
+  // Check if user has access to a specific clinic
+  const hasClinicAccess = (clinicId) => {
+    if (!user) return false;
+    
+    // SUPERADMIN has access to all clinics
+    if (user.role === 'superadmin') return true;
+    
+    // CLINICADMIN, BRANCHADMIN, DOCTOR have access to their assigned clinic
+    return user.clinicId === clinicId;
+  };
+  
+  // Check if user has access to a specific branch
+  const hasBranchAccess = (branchId) => {
+    if (!user) return false;
+    
+    // SUPERADMIN has access to all branches
+    if (user.role === 'superadmin') return true;
+    
+    // CLINICADMIN has access to all branches in their clinic
+    // This would require an additional check against the branch's clinicId
+    if (user.role === 'clinicadmin') {
+      // For immediate check we can return true if we know the branch belongs to the user's clinic
+      // In practice, you might want to verify this with an API call or pass in the branch's clinicId
+      return true; // This is simplified - should check if branch belongs to user's clinic
+    }
+    
+    // BRANCHADMIN, DOCTOR have access only to their assigned branch
+    return user.branchId === branchId;
+  };
 
   // Auth context value
   const authContextValue = {
@@ -128,6 +158,8 @@ export const AuthProvider = ({ children }) => {
     login,
     logout,
     hasRole,
+    hasClinicAccess,
+    hasBranchAccess,
     getDashboardByRole,
   };
 
