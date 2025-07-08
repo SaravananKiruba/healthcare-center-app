@@ -18,6 +18,46 @@ const ProtectedRoute = ({
   const { data: session, status } = useSession();
   const isLoading = status === 'loading';
   
+  // Use a single useEffect to handle all redirects
+  useEffect(() => {
+    if (status !== 'loading') {
+      // Not authenticated
+      if (!session) {
+        router.replace({
+          pathname: redirectTo,
+          query: { callbackUrl: router.asPath }
+        });
+        return;
+      }
+      
+      // Check role restrictions
+      const userHasRequiredRole = allowedRoles.length === 0 || 
+        allowedRoles.includes(session.user.role);
+        
+      // User doesn't have the required role
+      if (!userHasRequiredRole) {
+        // Get the appropriate dashboard based on role
+        let dashboardPath;
+        
+        // Map the role to the appropriate dashboard
+        switch (session.user.role) {
+          case 'superadmin':
+          case 'clinicadmin':
+          case 'branchadmin':
+            dashboardPath = '/admin-dashboard';
+            break;
+          case 'doctor':
+            dashboardPath = '/doctor-dashboard';
+            break;
+          default:
+            dashboardPath = '/login';
+        }
+          
+        router.replace(dashboardPath);
+      }
+    }
+  }, [router, session, status, redirectTo, allowedRoles]);
+  
   // Loading state
   if (isLoading) {
     return (
@@ -28,45 +68,8 @@ const ProtectedRoute = ({
     );
   }
 
-  // Not authenticated
-  if (!session) {
-    useEffect(() => {
-      router.replace({
-        pathname: redirectTo,
-        query: { callbackUrl: router.asPath }
-      });
-    }, [router]);
-    
-    return null;
-  }
-
-  // Check role restrictions
-  const userHasRequiredRole = allowedRoles.length === 0 || 
-    allowedRoles.includes(session.user.role);
-
-  // User doesn't have the required role
-  if (!userHasRequiredRole) {
-    useEffect(() => {
-      // Get the appropriate dashboard based on role
-      let dashboardPath;
-      
-      // Map the role to the appropriate dashboard
-      switch (session.user.role) {
-        case 'superadmin':
-        case 'clinicadmin':
-        case 'branchadmin':
-          dashboardPath = '/admin-dashboard';
-          break;
-        case 'doctor':
-          dashboardPath = '/doctor-dashboard';
-          break;
-        default:
-          dashboardPath = '/login';
-      }
-        
-      router.replace(dashboardPath);
-    }, [router, session.user.role]);
-    
+  // Not authenticated or doesn't have required role
+  if (!session || (allowedRoles.length > 0 && !allowedRoles.includes(session.user.role))) {
     return null;
   }
 
