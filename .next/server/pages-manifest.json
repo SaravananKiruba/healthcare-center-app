@@ -3,11 +3,8 @@
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
   "/patients": "pages/patients.js",
-  "/patient/[id]": "pages/patient/[id].js",
-  "/api/auth/[...nextauth]": "pages/api/auth/[...nextauth].js",
   "/api/investigations": "pages/api/investigations.js",
-  "/reports": "pages/reports.js",
-  "/api/patients": "pages/api/patients.js",
-  "/login": "pages/login.js",
-  "/search": "pages/search.js"
+  "/settings": "pages/settings.js",
+  "/patient/[id]": "pages/patient/[id].js",
+  "/api/auth/[...nextauth]": "pages/api/auth/[...nextauth].js"
 }

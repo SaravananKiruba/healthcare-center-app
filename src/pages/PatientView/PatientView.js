@@ -164,7 +164,10 @@ const PatientView = ({ patientId }) => {
               Back
             </Button>
           </Link>
-          <Heading size="lg">Patient Detail</Heading>
+          <Flex align="center">
+            <Heading size="lg" mr={2}>Patient Detail</Heading>
+            <Badge bg="brand.300" color="white" fontSize="md" p={1} borderRadius="md">MediBOO</Badge>
+          </Flex>
         </HStack>
         
         <HStack spacing="3">
@@ -196,30 +199,34 @@ const PatientView = ({ patientId }) => {
       </Flex>
       
       {/* Patient Overview Card */}
-      <Card mb="6">
-        <CardHeader bg="brand.50" py="3">
-          <Heading size="md">Patient Overview</Heading>
+      <Card mb="6" boxShadow="md">
+        <CardHeader bgGradient="linear(to-r, brand.100, brand.200)" py="4" borderTopRadius="lg">
+          <Heading size="md" color="gray.700">Patient Overview</Heading>
         </CardHeader>
         <CardBody>
           <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
-            <HStack align="start" spacing="4">
+            <HStack align="start" spacing="5">
               <Avatar 
                 size="xl" 
                 name={patient.name} 
-                bg="brand.500" 
+                bg="brand.300" 
+                color="white"
+                boxShadow="md"
+                borderWidth="3px"
+                borderColor="brand.100"
               />
               <Box>
-                <Heading size="md">{patient.name}</Heading>
-                <HStack mt="1">
-                  <Text color="gray.600">ID: </Text>
-                  <Text fontWeight="semibold" fontFamily="mono">{patient.id.substring(0, 8)}</Text>
+                <Heading size="md" color="brand.600">{patient.name}</Heading>
+                <HStack mt="2">
+                  <Text color="gray.600" fontSize="sm">ID: </Text>
+                  <Text fontWeight="semibold" fontFamily="mono" fontSize="sm" bg="brand.50" px={2} py={1} borderRadius="md">{patient.id.substring(0, 8)}</Text>
                 </HStack>
-                <HStack mt="1">
-                  <Badge colorScheme="blue">{patient.sex}</Badge>
-                  <Text fontWeight="semibold">{patient.age} years</Text>
+                <HStack mt="2" spacing={3}>
+                  <Badge bg="brand.300" color="white" py={1} px={2} borderRadius="md">{patient.sex}</Badge>
+                  <Badge bg="brand.400" color="white" py={1} px={2} borderRadius="md">{patient.age} years</Badge>
                 </HStack>
                 {patient.investigations && patient.investigations.length > 0 && (
-                  <Badge colorScheme="green" mt={1}>
+                  <Badge bg="brand.200" color="gray.700" mt={2} py={1} px={2} borderRadius="md">
                     {patient.investigations.length} Investigation(s)
                   </Badge>
                 )}
@@ -253,25 +260,76 @@ const PatientView = ({ patientId }) => {
             </VStack>
             
             <Box gridColumn={{ md: "1 / -1" }}>
-              <Divider my="2" />
-              <Text fontWeight="medium" mb="1">
+              <Divider my="3" borderColor="brand.100" />
+              <Text fontWeight="medium" mb="2" color="brand.600" fontSize="md" display="flex" alignItems="center">
                 <Icon as={FiFileText} mr="2" />
                 Chief Complaints
               </Text>
-              <Text>{patient.chiefComplaints}</Text>
+              <Text bg="brand.50" p={3} borderRadius="md">{patient.chiefComplaints}</Text>
+            </Box>
+            
+            {/* Quick Investigation Summary */}
+            <Box gridColumn={{ md: "1 / -1" }} mt={2}>
+              <Divider my="3" borderColor="brand.100" />
+              <Flex alignItems="center" justifyContent="space-between">
+                <Text fontWeight="medium" color="brand.600" fontSize="md" display="flex" alignItems="center">
+                  <Icon as={FiFileText} mr="2" />
+                  Recent Investigations
+                </Text>
+                {canEdit && (
+                  <Button 
+                    size="xs" 
+                    bg="brand.100"
+                    color="gray.700"
+                    _hover={{ bg: "brand.200" }}
+                    leftIcon={<FiPlusCircle />}
+                    onClick={() => setIsAddModalOpen(true)}
+                    boxShadow="sm"
+                  >
+                    Add
+                  </Button>
+                )}
+              </Flex>
+              
+              <Box mt={2} bg="brand.50" p={3} borderRadius="md">
+                {patient.investigations && patient.investigations.length > 0 ? (
+                  <HStack spacing={2} flexWrap="wrap">
+                    {patient.investigations.slice(0, 3).map(inv => (
+                      <Badge 
+                        key={inv.id} 
+                        bg="brand.200" 
+                        color="gray.700" 
+                        p={2} 
+                        borderRadius="md"
+                        display="flex"
+                        alignItems="center"
+                      >
+                        {inv.type} - {formatDate(inv.date)}
+                      </Badge>
+                    ))}
+                    {patient.investigations.length > 3 && (
+                      <Badge bg="brand.300" color="white" p={2} borderRadius="md">
+                        +{patient.investigations.length - 3} more
+                      </Badge>
+                    )}
+                  </HStack>
+                ) : (
+                  <Text fontSize="sm" color="gray.500">No investigations recorded yet</Text>
+                )}
+              </Box>
             </Box>
           </SimpleGrid>
         </CardBody>
       </Card>
       
       {/* Patient Tabs */}
-      <Tabs isLazy colorScheme="brand" defaultIndex={0}>
-        <TabList overflowX="auto" flexWrap="nowrap" py="2">
-          <Tab fontWeight="medium">Investigations & Reports</Tab>
-          <Tab>Medical History</Tab>
-          <Tab>Physical Generals</Tab>
-          {patient.sex === 'Female' && <Tab>Menstrual History</Tab>}
-          <Tab>Food & Habits</Tab>
+      <Tabs isLazy colorScheme="brand" defaultIndex={0} boxShadow="md" bg="white" borderRadius="lg" p="4">
+        <TabList overflowX="auto" flexWrap="nowrap" py="2" borderBottom="2px" borderColor="brand.200">
+          <Tab fontWeight="medium" _selected={{ color: "brand.600", borderColor: "brand.300", bg: "brand.50" }}>Investigations & Reports</Tab>
+          <Tab _selected={{ color: "brand.600", borderColor: "brand.300", bg: "brand.50" }}>Medical History</Tab>
+          <Tab _selected={{ color: "brand.600", borderColor: "brand.300", bg: "brand.50" }}>Physical Generals</Tab>
+          {patient.sex === 'Female' && <Tab _selected={{ color: "brand.600", borderColor: "brand.300", bg: "brand.50" }}>Menstrual History</Tab>}
+          <Tab _selected={{ color: "brand.600", borderColor: "brand.300", bg: "brand.50" }}>Food & Habits</Tab>
         </TabList>
         
         <TabPanels mt="4">
@@ -1180,14 +1238,34 @@ const InvestigationsTab = ({ patient, canEdit }) => {
   const [filter, setFilter] = useState('all'); // Filter for investigation types: 'all', 'blood', 'xray', etc.
   const [sortOrder, setSortOrder] = useState('desc'); // Sort order: 'asc' or 'desc'
   const toast = useToast();
-  const { investigationsAPI, addInvestigation } = useAppContext();
+  const { investigationsAPI } = useAppContext();
   const [investigations, setInvestigations] = useState([]);
   
   // Fetch investigations when component mounts or patient changes
   useEffect(() => {
     if (patient && patient.id) {
+      // Initialize investigations array if not present
+      if (!patient.investigations) {
+        patient.investigations = [];
+      }
+      
+      // Fetch investigations from the server
       fetchInvestigations();
     }
+  }, [patient]);
+  
+  // Set up a refresh interval for investigations
+  useEffect(() => {
+    // Refresh investigations every 30 seconds
+    const intervalId = setInterval(() => {
+      if (patient && patient.id) {
+        console.log('Auto-refreshing investigations for patient ID:', patient.id);
+        fetchInvestigations();
+      }
+    }, 30000);
+    
+    // Clean up interval on component unmount
+    return () => clearInterval(intervalId);
   }, [patient]);
 
   // Fetch investigations for the patient
@@ -1196,11 +1274,24 @@ const InvestigationsTab = ({ patient, canEdit }) => {
       setIsLoading(true);
       setError(null);
       console.log('Fetching investigations for patient ID:', patient.id);
-      const data = await investigationsAPI.getAllInvestigations(patient.id);
+      
+      // Make sure we have a valid patient ID
+      if (!patient.id) {
+        throw new Error('Invalid patient ID');
+      }
+      
+      // Use the patient-specific endpoint with direct API call
+      const response = await fetch(`/api/investigations?patientId=${patient.id}`);
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
       console.log('Investigations fetched:', data);
       
       // Handle potential null or undefined data
-      if (data && Array.isArray(data)) {
+      if (Array.isArray(data)) {
         setInvestigations(data);
       } else if (data && data.investigations && Array.isArray(data.investigations)) {
         setInvestigations(data.investigations);
@@ -1223,19 +1314,19 @@ const InvestigationsTab = ({ patient, canEdit }) => {
     }
   };
 
-  // Get investigation types for filtering
-  const investigationTypes = useMemo(() => {
-    const types = investigations.map(inv => inv.type);
-    return ['all', ...new Set(types)];
+  // Get doctor names for filtering
+  const doctorNames = useMemo(() => {
+    const names = investigations.map(inv => inv.doctor).filter(Boolean);
+    return ['all', ...new Set(names)];
   }, [investigations]);
   
   // Filter and sort investigations based on current settings
   const filteredInvestigations = useMemo(() => {
     let filtered = [...investigations];
     
-    // Apply type filter
+    // Apply doctor filter
     if (filter !== 'all') {
-      filtered = filtered.filter(inv => inv.type === filter);
+      filtered = filtered.filter(inv => inv.doctor === filter);
     }
     
     // Apply sorting
@@ -1252,6 +1343,7 @@ const InvestigationsTab = ({ patient, canEdit }) => {
   const handleDeleteInvestigation = async (id) => {
     if (window.confirm('Are you sure you want to delete this investigation?')) {
       try {
+        console.log('Deleting investigation with ID:', id);
         await investigationsAPI.deleteInvestigation(id);
         setInvestigations(investigations.filter(inv => inv.id !== id));
         toast({
@@ -1262,9 +1354,10 @@ const InvestigationsTab = ({ patient, canEdit }) => {
           isClosable: true,
         });
       } catch (error) {
+        console.error('Error deleting investigation:', error);
         toast({
           title: "Error deleting investigation",
-          description: error.message,
+          description: error.message || "Could not delete investigation",
           status: "error",
           duration: 5000,
           isClosable: true,
@@ -1291,16 +1384,24 @@ const InvestigationsTab = ({ patient, canEdit }) => {
       setInvestigations(prev => [...prev, investigation]);
     }
     
+    // Make sure to properly close all modals
     setIsAddModalOpen(false);
     setIsEditModalOpen(false);
     setCurrentInvestigation(null);
+    
+    // Refresh the investigations list from the server to ensure we have the latest data
+    fetchInvestigations();
   };
 
-  // Get count of each investigation type for the summary
+  // Get count of investigations by doctor
   const investigationSummary = useMemo(() => {
     const summary = {};
     investigations.forEach(inv => {
-      summary[inv.type] = (summary[inv.type] || 0) + 1;
+      if (inv.doctor) {
+        summary[inv.doctor] = (summary[inv.doctor] || 0) + 1;
+      } else {
+        summary['Unspecified'] = (summary['Unspecified'] || 0) + 1;
+      }
     });
     return summary;
   }, [investigations]);
@@ -1308,15 +1409,18 @@ const InvestigationsTab = ({ patient, canEdit }) => {
   return (
     <>
       <Card>
-        <CardHeader bg="brand.50" py="3">
+        <CardHeader bgGradient="linear(to-r, brand.100, brand.200)" py="4" borderTopRadius="lg">
           <Flex justify="space-between" align="center">
-            <Heading size="md">Investigations & Reports</Heading>
+            <Heading size="md" color="gray.700">Investigations & Reports</Heading>
             {canEdit && (
               <Button 
                 size="sm" 
-                colorScheme="brand" 
+                bg="brand.100"
+                color="gray.700"
+                _hover={{ bg: "brand.200" }}
                 leftIcon={<FiPlusCircle />}
                 onClick={() => setIsAddModalOpen(true)}
+                boxShadow="sm"
               >
                 Add Investigation
               </Button>
@@ -1326,26 +1430,26 @@ const InvestigationsTab = ({ patient, canEdit }) => {
         <CardBody>
           {/* Summary of patient investigations */}
           {investigations.length > 0 && (
-            <Box mb={6} p={4} borderWidth="1px" borderRadius="lg" bg="gray.50">
-              <Heading size="sm" mb={3}>Investigation Summary</Heading>
-              <SimpleGrid columns={{ base: 1, md: 3 }} spacing={3}>
-                <Box>
-                  <Text fontWeight="bold">Total Investigations</Text>
-                  <Text fontSize="2xl">{investigations.length}</Text>
+            <Box mb={6} p={5} borderRadius="lg" bg="white" boxShadow="sm" borderLeft="4px" borderColor="brand.300">
+              <Heading size="sm" mb={4} color="brand.600" fontWeight="600">Investigation Summary</Heading>
+              <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+                <Box bg="brand.50" p={3} borderRadius="md">
+                  <Text fontWeight="bold" fontSize="sm" color="gray.600">Total Investigations</Text>
+                  <Text fontSize="2xl" color="brand.600">{investigations.length}</Text>
                 </Box>
-                <Box>
-                  <Text fontWeight="bold">Latest Investigation</Text>
-                  <Text>{investigations.length > 0 ? 
-                    `${investigations[0].type} (${formatDate(investigations[0].date)})` : 
+                <Box bg="brand.50" p={3} borderRadius="md">
+                  <Text fontWeight="bold" fontSize="sm" color="gray.600">Latest Investigation</Text>
+                  <Text fontWeight="medium">{investigations.length > 0 ? 
+                    `By ${investigations[0].doctor || 'Unspecified'} (${formatDate(investigations[0].date)})` : 
                     'None'}
                   </Text>
                 </Box>
-                <Box>
-                  <Text fontWeight="bold">Types</Text>
-                  <HStack flexWrap="wrap" spacing={2}>
-                    {Object.entries(investigationSummary).map(([type, count]) => (
-                      <Badge key={type} colorScheme="brand">
-                        {type}: {count}
+                <Box bg="brand.50" p={3} borderRadius="md">
+                  <Text fontWeight="bold" fontSize="sm" color="gray.600">Doctors</Text>
+                  <HStack flexWrap="wrap" spacing={2} mt={1}>
+                    {Object.entries(investigationSummary).map(([doctor, count]) => (
+                      <Badge key={doctor} bg="brand.200" color="gray.700" py={1} px={2} borderRadius="md">
+                        {doctor}: {count}
                       </Badge>
                     ))}
                   </HStack>
@@ -1356,30 +1460,38 @@ const InvestigationsTab = ({ patient, canEdit }) => {
 
           {/* Filters and controls */}
           {investigations.length > 0 && (
-            <Flex mb={4} justify="space-between" align="center" flexWrap="wrap" gap={2}>
-              <HStack>
-                <Text fontWeight="medium">Filter by:</Text>
+            <Flex mb={5} justify="space-between" align="center" flexWrap="wrap" gap={3} bg="brand.50" p={4} borderRadius="md" boxShadow="sm">
+              <HStack spacing={3}>
+                <Text fontWeight="medium" color="gray.600">Filter by Doctor:</Text>
                 <Select 
                   size="sm" 
-                  width="150px" 
+                  width="180px" 
                   value={filter}
                   onChange={(e) => setFilter(e.target.value)}
+                  bg="white"
+                  borderColor="brand.200"
+                  _hover={{ borderColor: "brand.300" }}
+                  boxShadow="sm"
                 >
-                  {investigationTypes.map(type => (
-                    <option key={type} value={type}>
-                      {type === 'all' ? 'All Types' : type}
+                  {doctorNames.map(doctor => (
+                    <option key={doctor} value={doctor}>
+                      {doctor === 'all' ? 'All Doctors' : doctor}
                     </option>
                   ))}
                 </Select>
               </HStack>
               
-              <HStack>
-                <Text fontWeight="medium">Sort:</Text>
+              <HStack spacing={3}>
+                <Text fontWeight="medium" color="gray.600">Sort:</Text>
                 <Select 
                   size="sm" 
-                  width="120px"
+                  width="150px"
                   value={sortOrder}
                   onChange={(e) => setSortOrder(e.target.value)}
+                  bg="white"
+                  borderColor="brand.200"
+                  _hover={{ borderColor: "brand.300" }}
+                  boxShadow="sm"
                 >
                   <option value="desc">Newest First</option>
                   <option value="asc">Oldest First</option>
@@ -1405,40 +1517,56 @@ const InvestigationsTab = ({ patient, canEdit }) => {
               </Button>
             </Box>
           ) : filteredInvestigations.length === 0 ? (
-            <Text textAlign="center" py="6" color="gray.500">
-              {investigations.length > 0 ? 
-                'No investigations match the current filter.' : 
-                'No investigation reports added yet.'}
-            </Text>
+            <Box textAlign="center" py="8" px="4" bg="brand.50" borderRadius="lg" borderWidth="1px" borderColor="brand.100">
+              <Icon as={FiFileText} boxSize="10" color="brand.300" mb={3} />
+              <Text fontWeight="medium" color="gray.700" fontSize="lg">
+                {investigations.length > 0 ? 
+                  'No investigations match the current filter.' : 
+                  'No investigation reports added yet.'}
+              </Text>
+              {canEdit && investigations.length === 0 && (
+                <Button 
+                  mt={4}
+                  size="sm" 
+                  bg="brand.100"
+                  color="gray.700"
+                  _hover={{ bg: "brand.200" }}
+                  leftIcon={<FiPlusCircle />}
+                  onClick={() => setIsAddModalOpen(true)}
+                >
+                  Add First Investigation
+                </Button>
+              )}
+            </Box>
           ) : (
-            <TableContainer>
-              <Table variant="simple">
-                <Thead>
+            <TableContainer borderRadius="lg" overflow="hidden" boxShadow="sm">
+              <Table variant="simple" bg="white">
+                <Thead bg="brand.50">
                   <Tr>
-                    <Th>Date</Th>
-                    <Th>Type</Th>
-                    <Th>Details</Th>
-                    <Th>Actions</Th>
+                    <Th borderColor="brand.200" color="gray.600">Date</Th>
+                    <Th borderColor="brand.200" color="gray.600">Doctor</Th>
+                    <Th borderColor="brand.200" color="gray.600">Details</Th>
+                    <Th borderColor="brand.200" color="gray.600" textAlign="center">Actions</Th>
                   </Tr>
                 </Thead>
                 <Tbody>
-                  {filteredInvestigations.map((investigation) => (
-                    <Tr key={investigation.id}>
-                      <Td>{formatDate(investigation.date)}</Td>
-                      <Td>
-                        <Badge colorScheme={getInvestigationColorScheme(investigation.type)}>
-                          {investigation.type}
-                        </Badge>
+                  {filteredInvestigations.map((investigation, index) => (
+                    <Tr key={investigation.id} bg={index % 2 === 0 ? 'white' : 'brand.50'} _hover={{ bg: 'brand.100' }}>
+                      <Td borderColor="gray.100">{formatDate(investigation.date)}</Td>
+                      <Td borderColor="gray.100">
+                        {investigation.doctor || <Text color="gray.400" as="i">Not specified</Text>}
                       </Td>
-                      <Td>{investigation.details}</Td>
-                      <Td>
-                        <HStack spacing="2">
+                      <Td borderColor="gray.100" fontWeight="medium">{investigation.details}</Td>
+                      <Td borderColor="gray.100" textAlign="center">
+                        <HStack spacing="2" justifyContent="center">
                           {investigation.fileUrl && (
                             <IconButton
                               aria-label="View file"
                               icon={<FiFileText />}
                               size="sm"
-                              variant="ghost"
+                              bg="brand.100"
+                              color="gray.700"
+                              _hover={{ bg: "brand.200" }}
                               as="a"
                               href={investigation.fileUrl}
                               target="_blank"
@@ -1452,7 +1580,9 @@ const InvestigationsTab = ({ patient, canEdit }) => {
                                 aria-label="Edit investigation"
                                 icon={<FiEdit />}
                                 size="sm"
-                                variant="ghost"
+                                bg="brand.100"
+                                color="gray.700"
+                                _hover={{ bg: "brand.200" }}
                                 onClick={() => handleEditInvestigation(investigation)}
                                 title="Edit Investigation"
                               />
@@ -1460,8 +1590,9 @@ const InvestigationsTab = ({ patient, canEdit }) => {
                                 aria-label="Delete investigation"
                                 icon={<FiTrash2 />}
                                 size="sm"
-                                colorScheme="red"
-                                variant="ghost"
+                                bg="brand.400"
+                                color="white"
+                                _hover={{ bg: "brand.500" }}
                                 onClick={() => handleDeleteInvestigation(investigation.id)}
                                 title="Delete Investigation"
                               />
@@ -1482,6 +1613,7 @@ const InvestigationsTab = ({ patient, canEdit }) => {
       <InvestigationFormModal
         isOpen={isAddModalOpen || isEditModalOpen}
         onClose={() => {
+          // Make sure all state variables are reset
           setIsAddModalOpen(false);
           setIsEditModalOpen(false);
           setCurrentInvestigation(null);
@@ -1494,57 +1626,29 @@ const InvestigationsTab = ({ patient, canEdit }) => {
   );
 };
 
-// Helper function to get color scheme based on investigation type
-const getInvestigationColorScheme = (type) => {
-  const typeMap = {
-    'Blood Test': 'red',
-    'Urine Test': 'yellow',
-    'X-Ray': 'blue',
-    'CT Scan': 'purple',
-    'MRI': 'pink',
-    'Ultrasound': 'cyan',
-    'ECG': 'orange',
-    'EEG': 'green'
-  };
-  
-  return typeMap[type] || 'gray';
-};
+
 
 const InvestigationFormModal = ({ isOpen, onClose, patientId, investigation, onSave }) => {
   const toast = useToast();
   const { investigationsAPI, addInvestigation } = useAppContext();
   const isEditing = !!investigation;
-  const [selectedType, setSelectedType] = useState(investigation?.type || '');
   
-  // Initialize form validation schema
+  // Initialize simplified form validation schema
   const validationSchema = Yup.object({
-    type: Yup.string().required('Investigation type is required'),
     details: Yup.string().required('Details are required'),
     date: Yup.date().required('Date is required').max(new Date(), 'Date cannot be in the future'),
     fileUrl: Yup.string().url('Must be a valid URL').nullable(),
     doctor: Yup.string(),
-    results: Yup.string(),
-    normalRange: Yup.string(),
-    followUpNeeded: Yup.boolean(),
-    followUpDate: Yup.date().nullable().when('followUpNeeded', {
-      is: true,
-      then: Yup.date().min(new Date(), 'Follow-up date must be in the future').required('Follow-up date is required'),
-    }),
     notes: Yup.string()
   });
   
-  // Initialize formik for form handling
+  // Initialize formik for form handling with simplified fields
   const formik = useFormik({
     initialValues: {
-      type: investigation?.type || '',
       details: investigation?.details || '',
       date: investigation?.date ? new Date(investigation.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
       fileUrl: investigation?.fileUrl || '',
       doctor: investigation?.doctor || '',
-      results: investigation?.results || '',
-      normalRange: investigation?.normalRange || '',
-      followUpNeeded: investigation?.followUpNeeded || false,
-      followUpDate: investigation?.followUpDate ? new Date(investigation.followUpDate).toISOString().split('T')[0] : '',
       notes: investigation?.notes || ''
     },
     validationSchema,
@@ -1552,10 +1656,19 @@ const InvestigationFormModal = ({ isOpen, onClose, patientId, investigation, onS
       try {
         let result;
         
+        // Make sure the date is properly formatted
+        const formattedValues = {
+          ...values,
+          type: "General", // Set a default type since we removed the field
+          date: new Date(values.date).toISOString()
+        };
+        
+        console.log('Submitting investigation:', formattedValues);
+        
         if (isEditing) {
           // Update existing investigation
           result = await investigationsAPI.updateInvestigation(investigation.id, {
-            ...values,
+            ...formattedValues,
             patientId,
           });
           toast({
@@ -1566,10 +1679,9 @@ const InvestigationFormModal = ({ isOpen, onClose, patientId, investigation, onS
             isClosable: true,
           });
         } else {
-          // Create new investigation using addInvestigation from context
-          // This ensures consistent state management
-          result = await addInvestigation({
-            ...values,
+          // Create new investigation - directly use the API service to bypass potential context issues
+          result = await investigationsAPI.createInvestigation({
+            ...formattedValues,
             patientId,
           });
           toast({
@@ -1581,75 +1693,83 @@ const InvestigationFormModal = ({ isOpen, onClose, patientId, investigation, onS
           });
         }
         
-        onSave(result);
+        if (result) {
+          onSave(result);
+        } else {
+          throw new Error("Failed to save investigation");
+        }
       } catch (error) {
+        console.error("Investigation save error:", error);
+        
         toast({
           title: isEditing ? "Error updating investigation" : "Error adding investigation",
-          description: error.message,
+          description: error.message || "An unknown error occurred while saving the investigation",
           status: "error",
           duration: 5000,
           isClosable: true,
         });
+        
+        // Show additional debugging info in development environment
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('Investigation data:', {
+            isEditing,
+            patientId, 
+            investigationId: investigation?.id,
+            values: formik.values
+          });
+        }
       }
     },
   });
-
-  // Update form fields based on investigation type
-  useEffect(() => {
-    if (formik.values.type !== selectedType) {
-      setSelectedType(formik.values.type);
-    }
-  }, [formik.values.type]);
   
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="lg">
-      <ModalOverlay />
-      <ModalContent>
-        <ModalHeader>
-          {isEditing ? 'Edit Investigation' : 'Add New Investigation'}
+    <Modal 
+      isOpen={isOpen} 
+      onClose={() => {
+        // Reset form before closing
+        formik.resetForm();
+        onClose();
+      }}
+      size="md"
+      closeOnOverlayClick={false}
+    >
+      <ModalOverlay bg="blackAlpha.300" backdropFilter="blur(5px)" />
+      <ModalContent borderRadius="lg" boxShadow="xl">
+        <ModalHeader bgGradient="linear(to-r, brand.100, brand.200)" borderTopRadius="lg" py={4}>
+          <Flex align="center">
+            <Box color="brand.500" mr={2}>
+              {isEditing ? <FiEdit size={20} /> : <FiPlusCircle size={20} />}
+            </Box>
+            <Text color="gray.700" fontWeight="bold">
+              {isEditing ? 'Edit Investigation' : 'Add New Investigation'}
+            </Text>
+          </Flex>
         </ModalHeader>
-        <ModalCloseButton />
+        <ModalCloseButton 
+          color="gray.700" 
+          onClick={() => {
+            formik.resetForm();
+            onClose();
+          }}
+        />
         
-        <ModalBody>
+        <ModalBody pt={6}>
           <form onSubmit={formik.handleSubmit}>
             <VStack spacing={4} align="stretch">
-              <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-                <FormControl isRequired isInvalid={formik.touched.type && formik.errors.type}>
-                  <FormLabel htmlFor="type">Investigation Type</FormLabel>
-                  <Select
-                    id="type"
-                    placeholder="Select type"
-                    {...formik.getFieldProps('type')}
-                  >
-                    <option value="Blood Test">Blood Test</option>
-                    <option value="Urine Test">Urine Test</option>
-                    <option value="X-Ray">X-Ray</option>
-                    <option value="CT Scan">CT Scan</option>
-                    <option value="MRI">MRI</option>
-                    <option value="Ultrasound">Ultrasound</option>
-                    <option value="ECG">ECG</option>
-                    <option value="EEG">EEG</option>
-                    <option value="Biopsy">Biopsy</option>
-                    <option value="Endoscopy">Endoscopy</option>
-                    <option value="Colonoscopy">Colonoscopy</option>
-                    <option value="Other">Other</option>
-                  </Select>
-                  <FormErrorMessage>{formik.errors.type}</FormErrorMessage>
-                </FormControl>
-                
-                <FormControl isRequired isInvalid={formik.touched.date && formik.errors.date}>
-                  <FormLabel htmlFor="date">Date</FormLabel>
-                  <Input
-                    id="date"
-                    type="date"
-                    {...formik.getFieldProps('date')}
-                  />
-                  <FormErrorMessage>{formik.errors.date}</FormErrorMessage>
-                </FormControl>
-              </SimpleGrid>
+              {/* Date Field */}
+              <FormControl isRequired isInvalid={formik.touched.date && formik.errors.date}>
+                <FormLabel htmlFor="date">Date</FormLabel>
+                <Input
+                  id="date"
+                  type="date"
+                  {...formik.getFieldProps('date')}
+                />
+                <FormErrorMessage>{formik.errors.date}</FormErrorMessage>
+              </FormControl>
               
+              {/* Doctor Name Field */}
               <FormControl>
-                <FormLabel htmlFor="doctor">Doctor</FormLabel>
+                <FormLabel htmlFor="doctor">Doctor Name</FormLabel>
                 <Input
                   id="doctor"
                   placeholder="Doctor who ordered/performed the investigation"
@@ -1657,6 +1777,7 @@ const InvestigationFormModal = ({ isOpen, onClose, patientId, investigation, onS
                 />
               </FormControl>
               
+              {/* Details Field */}
               <FormControl isRequired isInvalid={formik.touched.details && formik.errors.details}>
                 <FormLabel htmlFor="details">Details</FormLabel>
                 <Textarea
@@ -1668,58 +1789,9 @@ const InvestigationFormModal = ({ isOpen, onClose, patientId, investigation, onS
                 <FormErrorMessage>{formik.errors.details}</FormErrorMessage>
               </FormControl>
               
-              {/* Show different fields based on investigation type */}
-              {['Blood Test', 'Urine Test'].includes(selectedType) && (
-                <>
-                  <FormControl>
-                    <FormLabel htmlFor="results">Results</FormLabel>
-                    <Textarea
-                      id="results"
-                      placeholder="Enter test results"
-                      rows={2}
-                      {...formik.getFieldProps('results')}
-                    />
-                  </FormControl>
-                  
-                  <FormControl>
-                    <FormLabel htmlFor="normalRange">Normal Range</FormLabel>
-                    <Input
-                      id="normalRange"
-                      placeholder="Normal reference ranges"
-                      {...formik.getFieldProps('normalRange')}
-                    />
-                  </FormControl>
-                </>
-              )}
-              
-              {['X-Ray', 'CT Scan', 'MRI', 'Ultrasound'].includes(selectedType) && (
-                <FormControl isInvalid={formik.touched.fileUrl && formik.errors.fileUrl}>
-                  <FormLabel htmlFor="fileUrl">Image/Report URL</FormLabel>
-                  <Input
-                    id="fileUrl"
-                    type="url"
-                    placeholder="https://example.com/image.jpg"
-                    {...formik.getFieldProps('fileUrl')}
-                  />
-                  <FormErrorMessage>{formik.errors.fileUrl}</FormErrorMessage>
-                </FormControl>
-              )}
-              
-              {!['X-Ray', 'CT Scan', 'MRI', 'Ultrasound', 'Blood Test', 'Urine Test'].includes(selectedType) && (
-                <FormControl isInvalid={formik.touched.fileUrl && formik.errors.fileUrl}>
-                  <FormLabel htmlFor="fileUrl">File URL (Optional)</FormLabel>
-                  <Input
-                    id="fileUrl"
-                    type="url"
-                    placeholder="https://example.com/file.pdf"
-                    {...formik.getFieldProps('fileUrl')}
-                  />
-                  <FormErrorMessage>{formik.errors.fileUrl}</FormErrorMessage>
-                </FormControl>
-              )}
-              
+              {/* Additional Notes Field (Optional) */}
               <FormControl>
-                <FormLabel htmlFor="notes">Additional Notes</FormLabel>
+                <FormLabel htmlFor="notes">Additional Notes (Optional)</FormLabel>
                 <Textarea
                   id="notes"
                   placeholder="Any additional notes"
@@ -1728,43 +1800,41 @@ const InvestigationFormModal = ({ isOpen, onClose, patientId, investigation, onS
                 />
               </FormControl>
               
-              <Box>
-                <FormControl display="flex" alignItems="center">
-                  <FormLabel htmlFor="followUpNeeded" mb="0">
-                    Follow-up Required?
-                  </FormLabel>
-                  <Switch
-                    id="followUpNeeded"
-                    isChecked={formik.values.followUpNeeded}
-                    onChange={() => {
-                      formik.setFieldValue('followUpNeeded', !formik.values.followUpNeeded);
-                    }}
-                  />
-                </FormControl>
-                
-                {formik.values.followUpNeeded && (
-                  <FormControl mt={3} isInvalid={formik.touched.followUpDate && formik.errors.followUpDate}>
-                    <FormLabel htmlFor="followUpDate">Follow-up Date</FormLabel>
-                    <Input
-                      id="followUpDate"
-                      type="date"
-                      {...formik.getFieldProps('followUpDate')}
-                    />
-                    <FormErrorMessage>{formik.errors.followUpDate}</FormErrorMessage>
-                  </FormControl>
-                )}
-              </Box>
+              {/* File URL Field (Optional) */}
+              <FormControl isInvalid={formik.touched.fileUrl && formik.errors.fileUrl}>
+                <FormLabel htmlFor="fileUrl">File URL (Optional)</FormLabel>
+                <Input
+                  id="fileUrl"
+                  type="url"
+                  placeholder="https://example.com/file.pdf"
+                  {...formik.getFieldProps('fileUrl')}
+                />
+                <FormErrorMessage>{formik.errors.fileUrl}</FormErrorMessage>
+              </FormControl>
             </VStack>
             
-            <ModalFooter px={0} mt={6}>
-              <Button mr={3} onClick={onClose} variant="ghost">
+            <ModalFooter px={0} mt={6} borderTop="1px" borderColor="gray.100" pt={4}>
+              <Button 
+                mr={3} 
+                onClick={() => {
+                  formik.resetForm();
+                  onClose();
+                }} 
+                variant="outline" 
+                borderColor="brand.200"
+                color="gray.600"
+                _hover={{ bg: "gray.50" }}
+              >
                 Cancel
               </Button>
               <Button 
                 type="submit" 
-                colorScheme="brand" 
+                bg="brand.100"
+                color="gray.700"
+                _hover={{ bg: "brand.200" }}
                 isLoading={formik.isSubmitting}
                 leftIcon={isEditing ? <FiSave /> : <FiPlusCircle />}
+                boxShadow="sm"
               >
                 {isEditing ? 'Save Changes' : 'Add Investigation'}
               </Button>

@@ -52,9 +52,13 @@ import { APP_CONFIG, AUTH_CONFIG } from '../../config';
 const Logo = () => {
   return (
     <Box p="4">
-      <Heading size="md" color="brand.500">
-        {APP_CONFIG.name}
+      <Heading size="md" bgGradient="linear(to-r, brand.100, brand.300, brand.400)" 
+        bgClip="text" fontWeight="extrabold" letterSpacing="tight">
+        MediBOO
       </Heading>
+      <Text fontSize="xs" color="brand.500" fontWeight="medium" mt="1">
+        Patient Management System
+      </Text>
     </Box>
   );
 };

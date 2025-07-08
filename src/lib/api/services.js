@@ -58,16 +58,42 @@ export const InvestigationService = {
     return response.data;
   },
   
-  // Create new investigation
+  // Create new investigation with proper date handling
   createInvestigation: async (investigationData) => {
-    const response = await apiClient.post('/investigations', investigationData);
-    return response.data;
+    // Make sure date fields are properly formatted
+    const formattedData = {
+      ...investigationData,
+      date: investigationData.date ? new Date(investigationData.date).toISOString() : new Date().toISOString(),
+      followUpDate: investigationData.followUpNeeded && investigationData.followUpDate ? 
+        new Date(investigationData.followUpDate).toISOString() : null
+    };
+    
+    try {
+      const response = await apiClient.post('/investigations', formattedData);
+      return response.data;
+    } catch (error) {
+      console.error('Error creating investigation:', error);
+      throw error;
+    }
   },
   
-  // Update investigation
+  // Update investigation with proper date handling
   updateInvestigation: async (id, investigationData) => {
-    const response = await apiClient.put(`/investigations/${id}`, investigationData);
-    return response.data;
+    // Make sure date fields are properly formatted
+    const formattedData = {
+      ...investigationData,
+      date: investigationData.date ? new Date(investigationData.date).toISOString() : new Date().toISOString(),
+      followUpDate: investigationData.followUpNeeded && investigationData.followUpDate ? 
+        new Date(investigationData.followUpDate).toISOString() : null
+    };
+    
+    try {
+      const response = await apiClient.put(`/investigations/${id}`, formattedData);
+      return response.data;
+    } catch (error) {
+      console.error('Error updating investigation:', error);
+      throw error;
+    }
   },
   
   // Delete investigation
