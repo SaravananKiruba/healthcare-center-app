@@ -1,6 +1,6 @@
 # Healthcare Center Management System
 
-A comprehensive Next.js web application for healthcare centers to manage patients, investigations, reports, and user accounts.
+A comprehensive Next.js web application for healthcare centers to manage patients, investigations, reports, and user accounts. Built as a true multi-tenant SaaS platform with clinic-specific customization.
 
 ## Features
 
@@ -8,6 +8,8 @@ A comprehensive Next.js web application for healthcare centers to manage patient
   - Hierarchical organization with clinics and branches
   - Complete tenant isolation and data segregation
   - Support for multi-level administrative roles
+  - Clinic-specific branding and customization
+  - Custom domains support for each clinic
 
 - **Authentication and Authorization**
   - Hierarchical role-based access control (SUPERADMIN, CLINICADMIN, BRANCHADMIN, DOCTOR roles)
@@ -32,6 +34,13 @@ A comprehensive Next.js web application for healthcare centers to manage patient
   - Role assignment
   - Account activation/deactivation
 
+- **SaaS Administration**
+  - Clinic branding management
+  - Theme customization per clinic
+  - Logo and favicon management
+  - Custom CSS support
+  - Domain management
+
 - **Reports and Analytics**
   - Generate reports on patients and visits
   - Export reports to PDF
@@ -44,8 +53,9 @@ A comprehensive Next.js web application for healthcare centers to manage patient
   - NextAuth.js (authentication)
   - Chakra UI (styling)
 
-- **Database**
-  - SQLite (via Prisma ORM)
+- **Database & Storage**
+  - SQLite for development (via Prisma ORM)
+  - Local file storage for assets during development
 
 - **Additional Libraries**
   - Formik & Yup (form validation)
@@ -91,11 +101,25 @@ yarn dev
 - **Admin**: admin@example.com / password123
 - **Doctor**: doctor@example.com / password123
 
-## Multi-tenant SaaS Upgrade
+## Multi-tenant SaaS Setup
 
-The application has been upgraded to support multi-tenant architecture for SaaS deployment.
+The application has been upgraded to support multi-tenant architecture for SaaS deployment with clinic-specific branding and customization.
 
-### Running the Upgrade
+### Development Setup
+
+1. Set up environment variables:
+   - Copy `.env.example` to `.env.local`
+   - Update the values as needed for your development environment
+   - For development, SQLite is used for the database
+
+2. Initialize the application:
+   - Run `npm run setup` to initialize the application
+   - This will create the necessary directories and generate the Prisma client
+
+3. Start the development server:
+   - Run `npm run dev` to start the application in development mode
+
+### Running the Upgrade Locally
 
 1. Ensure you have backed up your database
 2. Run the upgrade script:

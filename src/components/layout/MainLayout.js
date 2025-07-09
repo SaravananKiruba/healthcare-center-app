@@ -48,20 +48,8 @@ import {
 import { useAuth } from '../../lib/auth';
 import { APP_CONFIG, AUTH_CONFIG } from '../../config';
 
-// Logo component
-const Logo = () => {
-  return (
-    <Box p="4">
-      <Heading size="md" bgGradient="linear(to-r, brand.100, brand.300, brand.400)" 
-        bgClip="text" fontWeight="extrabold" letterSpacing="tight">
-        MediBOO
-      </Heading>
-      <Text fontSize="xs" color="brand.500" fontWeight="medium" mt="1">
-        Patient Management System
-      </Text>
-    </Box>
-  );
-};
+// Import the dynamic clinic logo
+import ClinicLogo from '../common/ClinicLogo';
 
 // Navigation items with role-based access
 const getNavItems = (userRole) => {
@@ -165,7 +153,7 @@ const Sidebar = ({ isOpen, onClose, user }) => {
       display={{ base: isOpen ? 'block' : 'none', md: 'block' }}
     >
       <Flex h="20" alignItems="center" mx="8" justifyContent="space-between">
-        <Logo />
+        <ClinicLogo p="4" />
         <CloseButton display={{ base: 'flex', md: 'none' }} onClick={onClose} />
       </Flex>
       
@@ -208,7 +196,7 @@ const MobileNav = ({ onOpen, user, logout }) => {
       />
       
       <Box display={{ base: 'flex', md: 'none' }}>
-        <Logo />
+        <ClinicLogo p="4" size="sm" />
       </Box>
 
       <HStack spacing={3}>
@@ -273,7 +261,7 @@ const MainLayout = ({ children }) => {
           <DrawerContent>
             <DrawerCloseButton />
             <DrawerHeader>
-              <Logo />
+              <ClinicLogo size="md" />
             </DrawerHeader>
             <DrawerBody p={0}>
               <VStack spacing={1} align="stretch">

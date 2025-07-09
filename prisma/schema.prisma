@@ -12,18 +12,26 @@ datasource db {
 
 // New model for SaaS Clinic
 model Clinic {
-  id          String    @id @default(cuid())
-  name        String
-  address     String
-  contactEmail String
-  contactPhone String
-  isActive    Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id            String    @id @default(cuid())
+  name          String
+  address       String
+  contactEmail  String
+  contactPhone  String
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Branding fields
+  logoUrl       String?
+  faviconUrl    String?
+  primaryColor  String?   @default("#84c9ef")
+  secondaryColor String?  @default("#b4d2ed")
+  customCss     String?
+  customDomain  String?   @unique
   
   // Relations
-  branches    Branch[]
-  users       User[]
+  branches      Branch[]
+  users         User[]
   
   @@map("clinics")
 }
