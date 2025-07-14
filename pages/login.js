@@ -13,12 +13,26 @@ export default function LoginPage() {
   React.useEffect(() => {
     if (session && status === 'authenticated') {
       const redirectTo = router.query.callbackUrl || 
-                        (session.user.role === AUTH_CONFIG.roles.ADMIN 
-                          ? AUTH_CONFIG.routes.admin 
-                          : AUTH_CONFIG.routes.doctor);
+                        getDashboardRoute(session.user.role);
       router.push(redirectTo);
     }
   }, [session, status, router]);
+
+  // Get dashboard route based on role
+  const getDashboardRoute = (role) => {
+    switch(role) {
+      case 'superadmin':
+        return '/saas-admin';
+      case 'clinicadmin':
+        return '/clinic-admin';
+      case 'branchadmin':
+        return '/branch-admin';
+      case 'doctor':
+        return '/doctor-dashboard';
+      default:
+        return '/doctor-dashboard';
+    }
+  };
 
   if (status === 'loading') {
     return (

@@ -10,7 +10,7 @@ import { transformJsonFields } from './transform';
 
 // Create axios instance with enhanced configuration
 const apiClient = axios.create({
-  baseURL: `${API_CONFIG.baseUrl}/api`,
+  baseURL: '/api',
   timeout: API_CONFIG.timeout,
   headers: {
     'Content-Type': 'application/json',

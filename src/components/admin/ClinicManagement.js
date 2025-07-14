@@ -165,6 +165,35 @@ const ClinicManagement = () => {
     onOpen();
   };
 
+  // Handle deleting a clinic
+  const handleDeleteClinic = async (clinic) => {
+    if (!window.confirm(`Are you sure you want to delete "${clinic.name}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      await apiClient.delete(`/clinics/${clinic.id}`);
+      toast({
+        title: 'Success',
+        description: 'Clinic deleted successfully',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+      
+      // Refresh clinics list
+      fetchClinics();
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || error.response?.data?.error || 'Failed to delete clinic',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    }
+  };
+
   // Submit handler for clinic form
   const handleSubmit = async (values, actions) => {
     try {
@@ -266,6 +295,7 @@ const ClinicManagement = () => {
                         size="sm"
                         colorScheme="red"
                         variant="outline"
+                        onClick={() => handleDeleteClinic(clinic)}
                       />
                     </>
                   )}

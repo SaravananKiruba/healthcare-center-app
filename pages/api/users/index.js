@@ -168,6 +168,31 @@ export default async function handler(req, res) {
           return res.status(400).json({ error: 'Clinic administrators, branch administrators, and doctors must be assigned to a clinic' });
         }
         
+        // Validate that clinicId exists if provided
+        if (clinicId) {
+          const clinic = await prisma.clinic.findUnique({
+            where: { id: clinicId }
+          });
+          if (!clinic) {
+            return res.status(400).json({ error: 'Invalid clinic ID' });
+          }
+        }
+        
+        // Validate that branchId exists if provided
+        if (branchId) {
+          const branch = await prisma.branch.findUnique({
+            where: { id: branchId }
+          });
+          if (!branch) {
+            return res.status(400).json({ error: 'Invalid branch ID' });
+          }
+          
+          // Ensure branch belongs to the specified clinic
+          if (clinicId && branch.clinicId !== clinicId) {
+            return res.status(400).json({ error: 'Branch does not belong to the specified clinic' });
+          }
+        }
+        
         // Check if user already exists
         const existingUser = await prisma.user.findUnique({
           where: {
@@ -189,8 +214,8 @@ export default async function handler(req, res) {
             fullName,
             hashedPassword,
             role,
-            clinicId,
-            branchId,
+            clinicId: clinicId || null, // Convert empty string to null
+            branchId: branchId || null, // Convert empty string to null
             isActive
           }
         });
@@ -207,6 +232,24 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Database error:', error);
+    
+    // Provide more specific error messages for common foreign key constraint violations
+    if (error.code === 'P2003') {
+      const fieldName = error.meta?.field_name || 'foreign key';
+      let message = 'Foreign key constraint violation';
+      
+      if (fieldName.includes('clinic') || error.message.includes('clinic')) {
+        message = 'Invalid clinic ID - the specified clinic does not exist';
+      } else if (fieldName.includes('branch') || error.message.includes('branch')) {
+        message = 'Invalid branch ID - the specified branch does not exist';
+      }
+      
+      return res.status(400).json({ 
+        error: message,
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+    
     return res.status(500).json({ 
       error: 'Internal server error',
       details: process.env.NODE_ENV === 'development' ? error.message : 'Database operation failed'
