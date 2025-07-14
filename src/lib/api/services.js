@@ -110,8 +110,15 @@ export const InvestigationService = {
 export const UserService = {
   // Get all users (admin only)
   getAllUsers: async () => {
-    const response = await apiClient.get('/users');
-    return response.data;
+    console.log('UserService.getAllUsers called'); // Debug log
+    try {
+      const response = await apiClient.get('/users');
+      console.log('UserService.getAllUsers response:', response.data); // Debug log
+      return response.data;
+    } catch (error) {
+      console.error('UserService.getAllUsers error:', error); // Debug log
+      throw error;
+    }
   },
   
   // Get current user info

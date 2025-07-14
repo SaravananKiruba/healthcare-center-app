@@ -162,8 +162,22 @@ const UserManagement = ({
     if (validRoles.includes(session?.user?.role)) {
       fetchUsers();
       fetchClinics();
+      
+      // Auto-populate clinic and branch for branch admins
+      if (session.user.role === 'branchadmin') {
+        setFormData(prev => ({
+          ...prev,
+          clinicId: session.user.clinicId || '',
+          branchId: session.user.branchId || ''
+        }));
+        
+        // Fetch branches for the branch admin's clinic
+        if (session.user.clinicId) {
+          fetchBranches(session.user.clinicId);
+        }
+      }
     }
-  }, [session, fetchUsers, fetchClinics]);
+  }, [session, fetchUsers, fetchClinics, fetchBranches]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -227,14 +241,18 @@ const UserManagement = ({
 
   const handleClose = () => {
     setSelectedUser(null);
-    setFormData({
+    
+    // For branch admins, preserve their clinic and branch
+    const defaultFormData = {
       email: '',
       fullName: '',
       password: '',
-      role: AUTH_CONFIG.roles.DOCTOR,
-      clinicId: '',
-      branchId: '',
-    });
+      role: restrictedRole || AUTH_CONFIG.roles.DOCTOR,
+      clinicId: session?.user?.role === 'branchadmin' ? (session.user.clinicId || '') : '',
+      branchId: session?.user?.role === 'branchadmin' ? (session.user.branchId || '') : '',
+    };
+    
+    setFormData(defaultFormData);
     setBranches([]);
     onClose();
   };
@@ -410,7 +428,7 @@ const UserManagement = ({
                     value={formData.clinicId}
                     onChange={handleClinicChange}
                     placeholder="Select clinic"
-                    isDisabled={formData.role === 'superadmin' || loadingTenants}
+                    isDisabled={formData.role === 'superadmin' || loadingTenants || session?.user?.role === 'branchadmin'}
                   >
                     {clinics.map((clinic) => (
                       <option key={clinic.id} value={clinic.id}>{clinic.name}</option>
@@ -424,7 +442,7 @@ const UserManagement = ({
                     value={formData.branchId}
                     onChange={(e) => setFormData({ ...formData, branchId: e.target.value })}
                     placeholder="Select branch"
-                    isDisabled={!formData.clinicId || loadingTenants || ['superadmin', 'clinicadmin'].includes(formData.role)}
+                    isDisabled={!formData.clinicId || loadingTenants || ['superadmin', 'clinicadmin'].includes(formData.role) || session?.user?.role === 'branchadmin'}
                   >
                     {branches.map((branch) => (
                       <option key={branch.id} value={branch.id}>{branch.name}</option>
