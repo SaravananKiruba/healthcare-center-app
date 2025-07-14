@@ -9,7 +9,7 @@ import apiClient from './client';
  */
 export async function getDashboardStats() {
   try {
-    const response = await apiClient.get('/api/dashboard/stats');
+    const response = await apiClient.get('/dashboard/stats');
     return response.data;
   } catch (error) {
     console.error('Error fetching dashboard stats:', error);

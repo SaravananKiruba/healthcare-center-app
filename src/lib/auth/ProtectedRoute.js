@@ -42,9 +42,13 @@ const ProtectedRoute = ({
         // Map the role to the appropriate dashboard
         switch (session.user.role) {
           case 'superadmin':
+            dashboardPath = '/saas-admin';
+            break;
           case 'clinicadmin':
+            dashboardPath = '/clinic-admin';
+            break;
           case 'branchadmin':
-            dashboardPath = '/admin-dashboard';
+            dashboardPath = '/branch-admin';
             break;
           case 'doctor':
             dashboardPath = '/doctor-dashboard';

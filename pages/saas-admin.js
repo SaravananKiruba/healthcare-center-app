@@ -25,30 +25,26 @@ import { authOptions } from './api/auth/[...nextauth]';
 import { useAuth } from '@/lib/auth';
 import { PrismaClient } from '@prisma/client';
 
-// SaaS Admin Dashboard
-export default function AdminDashboard({ initialStats }) {
+// SaaS Admin Dashboard - Only manages Clinic Admins
+export default function SaasAdminDashboard({ initialStats }) {
   const [stats] = useState(initialStats || {
     clinicsCount: 0,
-    branchesCount: 0,
-    usersCount: 0,
-    patientsCount: 0,
+    clinicAdminsCount: 0,
   });
   
   const { user } = useAuth();
   const cardBg = useColorModeValue('white', 'gray.700');
   
-  // Determine which tabs to show based on user role
+  // SaaS Admin only manages clinics and clinic admins
   const showClinicTab = user?.role === 'superadmin';
-  const showBranchTab = user?.role === 'superadmin' || user?.role === 'clinicadmin';
-  const showBrandingTab = user?.role === 'superadmin' || user?.role === 'clinicadmin';
   
   return (
     <MainLayout>
       <Box p={4}>
         <Heading size="lg" mb={6}>SaaS Administration Dashboard</Heading>
         
-        {/* Stats Overview */}
-        <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={6} mb={8}>
+        {/* Stats Overview - SaaS Admin only sees Clinic-related stats */}
+        <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6} mb={8}>
           <Box bg={cardBg} p={5} shadow="md" borderRadius="lg">
             <Stat>
               <Flex align="center">
@@ -65,37 +61,11 @@ export default function AdminDashboard({ initialStats }) {
           <Box bg={cardBg} p={5} shadow="md" borderRadius="lg">
             <Stat>
               <Flex align="center">
-                <Icon as={FiMapPin} boxSize={8} mr={4} color="green.500" />
-                <Box>
-                  <StatLabel>Total Branches</StatLabel>
-                  <StatNumber>{stats.branchesCount}</StatNumber>
-                  <StatHelpText>Clinic branches</StatHelpText>
-                </Box>
-              </Flex>
-            </Stat>
-          </Box>
-          
-          <Box bg={cardBg} p={5} shadow="md" borderRadius="lg">
-            <Stat>
-              <Flex align="center">
                 <Icon as={FiUsers} boxSize={8} mr={4} color="purple.500" />
                 <Box>
-                  <StatLabel>Total Users</StatLabel>
-                  <StatNumber>{stats.usersCount}</StatNumber>
-                  <StatHelpText>Platform users</StatHelpText>
-                </Box>
-              </Flex>
-            </Stat>
-          </Box>
-          
-          <Box bg={cardBg} p={5} shadow="md" borderRadius="lg">
-            <Stat>
-              <Flex align="center">
-                <Icon as={FiSettings} boxSize={8} mr={4} color="orange.500" />
-                <Box>
-                  <StatLabel>Total Patients</StatLabel>
-                  <StatNumber>{stats.patientsCount}</StatNumber>
-                  <StatHelpText>Managed patients</StatHelpText>
+                  <StatLabel>Clinic Admins</StatLabel>
+                  <StatNumber>{stats.clinicAdminsCount}</StatNumber>
+                  <StatHelpText>Clinic administrators</StatHelpText>
                 </Box>
               </Flex>
             </Stat>
@@ -105,35 +75,25 @@ export default function AdminDashboard({ initialStats }) {
         <Tabs variant="enclosed" colorScheme="blue" isLazy>
           <TabList>
             {showClinicTab && <Tab>Clinics</Tab>}
-            {showBranchTab && <Tab>Branches</Tab>}
-            <Tab>Users</Tab>
-            {showBrandingTab && <Tab>Branding</Tab>}
+            {showClinicTab && <Tab>Clinic Admins</Tab>}
           </TabList>
           
           <TabPanels>
-            {/* Clinic Management Tab - Superadmin only */}
+            {/* Clinic Management Tab - SaaS Admin only */}
             {showClinicTab && (
               <TabPanel>
                 <ClinicManagement />
               </TabPanel>
             )}
             
-            {/* Branch Management Tab - Superadmin & Clinic Admin */}
-            {showBranchTab && (
+            {/* Clinic Admin Management Tab - SaaS Admin only */}
+            {showClinicTab && (
               <TabPanel>
-                <BranchManagement />
-              </TabPanel>
-            )}
-            
-            {/* User Management Tab - All Admin Roles */}
-            <TabPanel>
-              <UserManagement />
-            </TabPanel>
-            
-            {/* Branding Management Tab - Superadmin & Clinic Admin */}
-            {showBrandingTab && (
-              <TabPanel>
-                <BrandingManagement clinicId={user?.role === 'clinicadmin' ? user?.clinicId : null} />
+                <UserManagement 
+                  restrictedRole="clinicadmin" 
+                  title="Clinic Admin Management"
+                  description="Manage clinic administrators for your platform"
+                />
               </TabPanel>
             )}
           </TabPanels>
@@ -156,64 +116,37 @@ export async function getServerSideProps(context) {
     };
   }
   
-  // Redirect if not an admin role
-  if (!['superadmin', 'clinicadmin', 'branchadmin'].includes(session.user.role)) {
+  // Only allow superadmins for SaaS admin dashboard
+  if (session.user.role !== 'superadmin') {
     return {
       redirect: {
-        destination: '/doctor-dashboard',
+        destination: session.user.role === 'clinicadmin' ? '/clinic-admin' : 
+                   session.user.role === 'branchadmin' ? '/branch-admin' : '/doctor-dashboard',
         permanent: false,
       },
     };
   }
   
-  // Fetch dashboard stats based on role
+  // Fetch dashboard stats for SaaS admin
   const prisma = new PrismaClient();
   let stats = {
     clinicsCount: 0,
-    branchesCount: 0,
-    usersCount: 0,
-    patientsCount: 0,
+    clinicAdminsCount: 0,
   };
   
   try {
-    switch (session.user.role) {
-      case 'superadmin':
-        // Superadmin sees all stats
-        stats.clinicsCount = await prisma.clinic.count();
-        stats.branchesCount = await prisma.branch.count();
-        stats.usersCount = await prisma.user.count();
-        stats.patientsCount = await prisma.patient.count();
-        break;
-        
-      case 'clinicadmin':
-        // Clinic admin sees stats for their clinic
-        if (session.user.clinicId) {
-          stats.branchesCount = await prisma.branch.count({
-            where: { clinicId: session.user.clinicId }
-          });
-          stats.usersCount = await prisma.user.count({
-            where: { clinicId: session.user.clinicId }
-          });
-          stats.patientsCount = await prisma.patient.count({
-            where: { branch: { clinicId: session.user.clinicId } }
-          });
-        }
-        break;
-        
-      case 'branchadmin':
-        // Branch admin sees stats for their branch
-        if (session.user.branchId) {
-          stats.usersCount = await prisma.user.count({
-            where: { branchId: session.user.branchId }
-          });
-          stats.patientsCount = await prisma.patient.count({
-            where: { branchId: session.user.branchId }
-          });
-        }
-        break;
-    }
+    // Get all clinics count
+    stats.clinicsCount = await prisma.clinic.count({ where: { isActive: true } });
+    
+    // Get clinic admins count
+    stats.clinicAdminsCount = await prisma.user.count({
+      where: { 
+        role: 'clinicadmin',
+        isActive: true
+      }
+    });
   } catch (error) {
-    console.error('Error fetching admin dashboard stats:', error);
+    console.error('Error fetching SaaS admin stats:', error);
   } finally {
     await prisma.$disconnect();
   }

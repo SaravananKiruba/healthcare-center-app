@@ -28,9 +28,9 @@ export const AUTH_CONFIG = {
   
   // Routes based on user roles
   routes: {
-    superadmin: '/admin-dashboard',
-    clinicadmin: '/admin-dashboard',
-    branchadmin: '/admin-dashboard',
+    superadmin: '/saas-admin',
+    clinicadmin: '/clinic-admin',
+    branchadmin: '/branch-admin',
     doctor: '/doctor-dashboard',
     default: '/login',
   }

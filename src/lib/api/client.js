@@ -20,16 +20,11 @@ const apiClient = axios.create({
   retryDelay: 1000,
 });
 
-// Request interceptor - add auth headers, etc.
+// Request interceptor - prepare requests
 apiClient.interceptors.request.use(
   (config) => {
-    // Get token from localStorage if in browser
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('auth-token');
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-    }
+    // NextAuth handles authentication through session cookies
+    // No need to add Authorization headers
     return config;
   },
   (error) => Promise.reject(error)
@@ -49,34 +44,36 @@ apiClient.interceptors.response.use(
     return response;
   },
   (error) => {
-    // Handle retry logic for specific errors
-    const { config, response } = error;
-    if (!config || !config.retry) {
-      return Promise.reject(error);
-    }
+    // Log detailed error information for debugging
+    console.error('API Client Error:', {
+      message: error.message,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      url: error.config?.url,
+      method: error.config?.method
+    });
     
-    // Retry count
-    config.__retryCount = config.__retryCount || 0;
-    
-    // Check if we've maxed out the total retry count
-    if (config.__retryCount >= config.retry) {
-      return Promise.reject(error);
-    }
-    
-    // Only retry on network errors or 5xx errors
-    if (!response || (response && response.status >= 500)) {
-      // Increase the retry count
-      config.__retryCount += 1;
-      
-      // Create new promise to handle retry
-      const backoff = new Promise((resolve) => {
-        setTimeout(() => {
-          resolve();
-        }, config.retryDelay || 1000);
-      });
-      
-      // Return the promise in which recalls axios to retry the request
-      return backoff.then(() => apiClient(config));
+    // Handle common HTTP errors
+    if (error.response) {
+      switch (error.response.status) {
+        case 401:
+          // Unauthorized - redirect to login if needed
+          if (typeof window !== 'undefined') {
+            console.warn('Session expired, redirecting to login');
+            window.location.href = '/login';
+          }
+          break;
+        case 403:
+          console.error('Forbidden - insufficient permissions');
+          break;
+        case 404:
+          console.error('Resource not found');
+          break;
+        case 500:
+          console.error('Server error');
+          break;
+      }
     }
     
     return Promise.reject(error);

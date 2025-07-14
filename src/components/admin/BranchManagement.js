@@ -157,7 +157,7 @@ const BranchManagement = () => {
   const fetchBranches = async () => {
     try {
       setLoading(true);
-      const response = await apiClient.get('/api/branches');
+      const response = await apiClient.get('/branches');
       setBranches(response.data);
     } catch (error) {
       toast({
@@ -175,7 +175,7 @@ const BranchManagement = () => {
   // Fetch clinics for dropdown
   const fetchClinics = async () => {
     try {
-      const response = await apiClient.get('/api/clinics');
+      const response = await apiClient.get('/clinics');
       setClinics(response.data);
     } catch (error) {
       toast({
@@ -215,7 +215,7 @@ const BranchManagement = () => {
         });
       } else {
         // Create new branch
-        await apiClient.post('/api/branches', values);
+        await apiClient.post('/branches', values);
         toast({
           title: 'Success',
           description: 'Branch added successfully',

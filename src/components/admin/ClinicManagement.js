@@ -138,7 +138,7 @@ const ClinicManagement = () => {
   const fetchClinics = async () => {
     try {
       setLoading(true);
-      const response = await apiClient.get('/api/clinics');
+      const response = await apiClient.get('/clinics');
       setClinics(response.data);
     } catch (error) {
       toast({
@@ -180,7 +180,7 @@ const ClinicManagement = () => {
         });
       } else {
         // Create new clinic
-        await apiClient.post('/api/clinics', values);
+        await apiClient.post('/clinics', values);
         toast({
           title: 'Success',
           description: 'Clinic added successfully',

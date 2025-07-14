@@ -53,11 +53,43 @@ import ClinicLogo from '../common/ClinicLogo';
 
 // Navigation items with role-based access
 const getNavItems = (userRole) => {
-  const baseItems = [
+  // Admin-only navigation for different admin levels
+  if (userRole === AUTH_CONFIG.roles.SUPERADMIN) {
+    return [
+      { 
+        name: 'SaaS Admin Dashboard', 
+        icon: <FiHome />, 
+        href: '/saas-admin' 
+      },
+    ];
+  }
+
+  if (userRole === AUTH_CONFIG.roles.CLINICADMIN) {
+    return [
+      { 
+        name: 'Clinic Admin Dashboard', 
+        icon: <FiHome />, 
+        href: '/clinic-admin' 
+      },
+    ];
+  }
+
+  if (userRole === AUTH_CONFIG.roles.BRANCHADMIN) {
+    return [
+      { 
+        name: 'Branch Admin Dashboard', 
+        icon: <FiHome />, 
+        href: '/branch-admin' 
+      },
+    ];
+  }
+
+  // Doctor navigation - full access to core modules
+  const doctorItems = [
     { 
       name: 'Dashboard', 
       icon: <FiHome />, 
-      href: userRole === AUTH_CONFIG.roles.ADMIN ? '/admin-dashboard' : '/doctor-dashboard' 
+      href: '/doctor-dashboard' 
     },
     { 
       name: 'Patients', 
@@ -81,23 +113,7 @@ const getNavItems = (userRole) => {
     },
   ];
 
-  // Add admin-only navigation items
-  if (userRole === AUTH_CONFIG.roles.ADMIN) {
-    return [
-      ...baseItems,
-      { 
-        name: 'User Management', 
-        icon: <FiUser />, 
-        href: '/user-management',
-        badge: {
-          text: 'Admin',
-          colorScheme: 'red'
-        }
-      },
-    ];
-  }
-
-  return baseItems;
+  return doctorItems;
 };
 
 // Navigation Item Component

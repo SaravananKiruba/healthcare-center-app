@@ -11,7 +11,23 @@ export default function Home() {
 
     if (session) {
       // Redirect based on role
-      const redirectTo = session.user.role === 'admin' ? '/admin-dashboard' : '/doctor-dashboard';
+      let redirectTo;
+      switch (session.user.role) {
+        case 'superadmin':
+          redirectTo = '/saas-admin';
+          break;
+        case 'clinicadmin':
+          redirectTo = '/clinic-admin';
+          break;
+        case 'branchadmin':
+          redirectTo = '/branch-admin';
+          break;
+        case 'doctor':
+          redirectTo = '/doctor-dashboard';
+          break;
+        default:
+          redirectTo = '/login';
+      }
       router.push(redirectTo);
     } else {
       // Not logged in, redirect to login

@@ -41,7 +41,11 @@ import { useSession } from 'next-auth/react';
 import { AUTH_CONFIG } from '../../config';
 import apiClient from '../../lib/api/client';
 
-const UserManagement = () => {
+const UserManagement = ({ 
+  restrictedRole = null, 
+  title = "User Management", 
+  description = "Manage users in the system" 
+}) => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -58,16 +62,28 @@ const UserManagement = () => {
     email: '',
     fullName: '',
     password: '',
-    role: AUTH_CONFIG.roles.DOCTOR,
+    role: restrictedRole || AUTH_CONFIG.roles.DOCTOR,
     clinicId: '',
     branchId: '',
   });
+
+  // Update form role when restrictedRole prop changes
+  useEffect(() => {
+    setFormData(prev => ({
+      ...prev,
+      role: restrictedRole || AUTH_CONFIG.roles.DOCTOR
+    }));
+  }, [restrictedRole]);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
       const data = await UserService.getAllUsers();
-      setUsers(data);
+      // Filter users by restricted role if specified
+      const filteredUsers = restrictedRole 
+        ? data.filter(user => user.role === restrictedRole)
+        : data;
+      setUsers(filteredUsers);
     } catch (error) {
       toast({
         title: 'Error',
@@ -79,15 +95,16 @@ const UserManagement = () => {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, restrictedRole]);
 
   // Fetch clinics for dropdown
   const fetchClinics = useCallback(async () => {
     try {
       setLoadingTenants(true);
-      const response = await apiClient.get('/api/clinics');
+      const response = await apiClient.get('/clinics');
       setClinics(response.data);
     } catch (error) {
+      console.error('Error fetching clinics:', error);
       toast({
         title: 'Error',
         description: 'Failed to fetch clinics',
@@ -109,11 +126,12 @@ const UserManagement = () => {
     
     try {
       setLoadingTenants(true);
-      const response = await apiClient.get('/api/branches', {
+      const response = await apiClient.get('/branches', {
         params: { clinicId }
       });
       setBranches(response.data);
     } catch (error) {
+      console.error('Error fetching branches:', error);
       toast({
         title: 'Error',
         description: 'Failed to fetch branches',
@@ -121,7 +139,6 @@ const UserManagement = () => {
         duration: 3000,
         isClosable: true,
       });
-      setBranches([]);
     } finally {
       setLoadingTenants(false);
     }
@@ -254,10 +271,16 @@ const UserManagement = () => {
           <HStack justify="space-between">
             <HStack>
               <FiUsers size={24} />
-              <Heading size="lg">User Management</Heading>
+              <Box>
+                <Heading size="lg">{title}</Heading>
+                <Text fontSize="sm" color="gray.600">{description}</Text>
+              </Box>
             </HStack>
             <Button leftIcon={<FiPlus />} colorScheme="brand" onClick={onOpen}>
-              Add New User
+              Add New {restrictedRole ? 
+                (restrictedRole === 'clinicadmin' ? 'Clinic Admin' : 
+                 restrictedRole === 'branchadmin' ? 'Branch Admin' : 
+                 restrictedRole === 'doctor' ? 'Doctor' : 'User') : 'User'}
             </Button>
           </HStack>
         </CardHeader>
@@ -353,17 +376,28 @@ const UserManagement = () => {
                   <Select
                     value={formData.role}
                     onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                    isDisabled={restrictedRole !== null}
                   >
-                    {session?.user?.role === 'superadmin' && (
+                    {restrictedRole ? (
+                      <option value={restrictedRole}>
+                        {restrictedRole === 'clinicadmin' ? 'Clinic Admin' : 
+                         restrictedRole === 'branchadmin' ? 'Branch Admin' : 
+                         restrictedRole === 'doctor' ? 'Doctor' : restrictedRole}
+                      </option>
+                    ) : (
                       <>
-                        <option value="superadmin">Super Admin</option>
-                        <option value="clinicadmin">Clinic Admin</option>
+                        {session?.user?.role === 'superadmin' && (
+                          <>
+                            <option value="superadmin">Super Admin</option>
+                            <option value="clinicadmin">Clinic Admin</option>
+                          </>
+                        )}
+                        {(session?.user?.role === 'superadmin' || session?.user?.role === 'clinicadmin') && (
+                          <option value="branchadmin">Branch Admin</option>
+                        )}
+                        <option value="doctor">Doctor</option>
                       </>
                     )}
-                    {(session?.user?.role === 'superadmin' || session?.user?.role === 'clinicadmin') && (
-                      <option value="branchadmin">Branch Admin</option>
-                    )}
-                    <option value="doctor">Doctor</option>
                   </Select>
                 </FormControl>
 
