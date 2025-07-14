@@ -1,1 +1,0 @@
-# Healthcare Center Backend Application

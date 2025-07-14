@@ -135,3 +135,38 @@ export function transformIfNeeded(data, toSnakeCase = true) {
   
   return data;
 }
+
+/**
+ * Format a date string or Date object to a readable format
+ * @param {string|Date} dateString - The date to format
+ * @param {boolean} includeTime - Whether to include the time in the output
+ * @returns {string} Formatted date string
+ */
+export function formatDate(dateString, includeTime = false) {
+  if (!dateString) return '';
+  
+  try {
+    const date = new Date(dateString);
+    
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      return dateString;
+    }
+    
+    const options = {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    };
+    
+    if (includeTime) {
+      options.hour = '2-digit';
+      options.minute = '2-digit';
+    }
+    
+    return date.toLocaleDateString('en-US', options);
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return dateString;
+  }
+}

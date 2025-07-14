@@ -2,28 +2,28 @@ import { extendTheme } from '@chakra-ui/react';
 
 const colors = {
   brand: {
-    50: '#e6f7ff',
-    100: '#b3e0ff',
-    200: '#80caff',
-    300: '#4db3ff',
-    400: '#1a9dff',
-    500: '#0080ff', // Primary brand color
-    600: '#0066cc',
-    700: '#004c99',
-    800: '#003366',
-    900: '#001933',
+    50: '#e9f5fd',
+    100: '#84c9ef', // Primary brand color
+    200: '#b4d2ed', // Secondary brand color
+    300: '#cbbddd', // Tertiary brand color
+    400: '#dcb5d4', // Accent color
+    500: '#e3b1d2', // Light accent color
+    600: '#68a1c0',
+    700: '#4d7990',
+    800: '#335160',
+    900: '#1a2830',
   },
   secondary: {
-    50: '#f0fdf4',
-    100: '#dcfce7',
-    200: '#bbf7d0',
-    300: '#86efac',
-    400: '#4ade80',
-    500: '#22c55e',
-    600: '#16a34a',
-    700: '#15803d',
-    800: '#166534',
-    900: '#14532d',
+    50: '#f0f7fd',
+    100: '#d6e8f7',
+    200: '#b4d2ed',
+    300: '#90b6dd',
+    400: '#6c9bce',
+    500: '#5080be',
+    600: '#406699',
+    700: '#304d73',
+    800: '#20334c',
+    900: '#101a26',
   },
 };
 

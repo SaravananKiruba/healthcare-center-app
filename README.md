@@ -1,55 +1,192 @@
-# Healthcare Center Application
+# MediBoo - Healthcare SaaS Platform
 
-This is a full-stack healthcare management application built with FastAPI (backend) and React (frontend).
+A comprehensive multi-tenant healthcare management system built as a SaaS platform for clinics and healthcare providers.
+
+A comprehensive Next.js web application for healthcare centers to manage patients, investigations, reports, and user accounts. Built as a true multi-tenant SaaS platform with clinic-specific customization.
+
+## Features
+
+- **Multi-tenant SaaS Architecture**
+  - Hierarchical organization with clinics and branches
+  - Complete tenant isolation and data segregation
+  - Support for multi-level administrative roles
+  - Clinic-specific branding and customization
+  - Custom domains support for each clinic
+
+- **Authentication and Authorization**
+  - Hierarchical role-based access control (SUPERADMIN, CLINICADMIN, BRANCHADMIN, DOCTOR roles)
+  - Tenant-aware authorization and scoping
+  - Secure login and session management
+  - Protected routes with role and tenant validation
+
+- **Patient Management**
+  - Patient registration and profiling with branch association
+  - Medical history tracking
+  - Patient visit records
+
+- **Investigation Management**
+  - Create and manage comprehensive investigations for patients
+  - Upload and store investigation files and reports
+  - Track investigation history with detailed medical parameters
+  - Schedule follow-up dates for ongoing patient care
+  - Sort and filter investigations by type and date
+
+- **User Management (Admin)**
+  - Create, update, and manage users
+  - Role assignment
+  - Account activation/deactivation
+
+- **SaaS Administration**
+  - Clinic branding management
+  - Theme customization per clinic
+  - Logo and favicon management
+  - Custom CSS support
+  - Domain management
+
+- **Reports and Analytics**
+  - Generate reports on patients and visits
+  - Export reports to PDF
+
+## Tech Stack
+
+- **Frontend & Backend**
+  - Next.js (React framework)
+  - Next.js API Routes
+  - NextAuth.js (authentication)
+  - Chakra UI (styling)
+
+- **Database & Storage**
+  - SQLite for development (via Prisma ORM)
+  - Local file storage for assets during development
+
+- **Additional Libraries**
+  - Formik & Yup (form validation)
+  - React Icons
+  - jsPDF & html2canvas (PDF generation)
 
 ## Getting Started
 
 ### System Requirements
 
-- **Node.js**: v16+ (for frontend)
-- **Python**: v3.8+ (for backend)
-- **Ports**: 3000 (frontend) and 8000 (backend) must be available
+- **Node.js**: v16+ 
+- **npm** or **yarn**
 
 ### Quick Start
 
-This application uses only two batch files for setup and operation:
+1. Install dependencies:
+```bash
+npm install
+# or
+yarn
+```
 
-1. **Setup**: Run `healthcare-setup.bat` to check your environment, install all dependencies, and initialize the database.
-2. **Start**: Run `healthcare-start.bat` to start both the frontend and backend servers.
+2. Set up the database:
+```bash
+npm run db:push
+npm run db:seed
+# or
+yarn db:push
+yarn db:seed
+```
+
+3. Start the development server:
+```bash
+npm run dev
+# or
+yarn dev
+```
+
+4. Access the application at: http://localhost:3000
 
 ### Default Login Credentials
 
-- **Admin**: admin@healthcare.com / admin123
+- **Admin**: admin@example.com / password123
+- **Doctor**: doctor@example.com / password123
+
+## Multi-tenant SaaS Setup
+
+The application has been upgraded to support multi-tenant architecture for SaaS deployment with clinic-specific branding and customization.
+
+### Development Setup
+
+1. Set up environment variables:
+   - Copy `.env.example` to `.env.local`
+   - Update the values as needed for your development environment
+   - For development, SQLite is used for the database
+
+2. Initialize the application:
+   - Run `npm run setup` to initialize the application
+   - This will create the necessary directories and generate the Prisma client
+
+3. Start the development server:
+   - Run `npm run dev` to start the application in development mode
+
+### Running the Upgrade Locally
+
+1. Ensure you have backed up your database
+2. Run the upgrade script:
+```bash
+# Windows
+.\upgrade-to-saas.bat
+
+# Linux/Mac (using bash)
+bash ./upgrade-to-saas.sh
+```
+
+3. After upgrading, restart the application:
+```bash
+npm run start
+```
+
+### Multi-tenant Login Credentials
+
+After upgrading, use these default credentials:
+
+- **Super Admin**: superadmin@healthcare.com / superadmin123
+- **Clinic Admin**: clinicadmin@healthcare.com / clinic123
+- **Branch Admin**: branchadmin@healthcare.com / branch123
 - **Doctor**: doctor@healthcare.com / doctor123
+
+### Troubleshooting
+
+If the upgrade fails, use the recovery script:
+```bash
+# Windows
+.\migration-recovery.bat
+
+# Linux/Mac
+bash ./migration-recovery.sh
+```
 
 ## Application Structure
 
-### Frontend (React)
-
-- Located in the project root and `/src` directory
-- Built with React, Chakra UI, and React Router
-- Connects to the backend API on port 8000
-
-### Backend (FastAPI)
-
-- Located in the `/backend` directory
-- Built with FastAPI, SQLAlchemy, and SQLite
-- API documentation available at `http://localhost:8000/docs`
-
-## Troubleshooting
-
-If you encounter any issues:
-
-1. **Port Conflicts**: Ensure ports 3000 and 8000 are not in use by other applications.
-2. **Dependencies**: If installation fails, try running `healthcare-setup.bat` again with administrator privileges.
-3. **Database Issues**: If the app fails to start due to database errors, delete the `backend/healthcare.db` file and run `healthcare-setup.bat` again to recreate it.
-4. **Login Issues**: If you can't log in, the default credentials may have been changed. Check the database or use the backend API to reset passwords.
-
-## Development
-
-To make changes to the application:
-
-1. Frontend code is located in the `/src` directory
-2. Backend code is located in the `/backend/app` directory
-3. Database schema is defined in `/backend/app/models.py`
-4. API endpoints are defined in `/backend/app/main.py`
+```
+healthcare-center-app/
+├── pages/                  # Next.js pages
+│   ├── api/                # API routes
+│   │   ├── auth/           # Authentication endpoints
+│   │   ├── patients/       # Patient endpoints
+│   │   └── investigations/ # Investigation endpoints
+│   ├── _app.js            # Main app component
+│   ├── index.js           # Home/landing page
+│   └── ...                # Other pages
+├── prisma/                # Prisma ORM
+│   ├── schema.prisma      # Database schema
+│   └── seed.js           # Database seed script
+├── public/               # Static assets
+│   └── ...
+├── src/
+│   ├── components/        # React components
+│   │   ├── common/        # Shared/common components
+│   │   ├── dashboard/     # Dashboard components
+│   │   ├── layout/        # Layout components
+│   │   ├── patients/      # Patient-related components
+│   │   └── ...           # Other component categories
+│   ├── config/           # Application configuration
+│   ├── hooks/            # Custom React hooks
+│   ├── lib/              # Utility libraries
+│   │   ├── api/          # API client and services
+│   │   └── auth/         # Authentication utilities
+│   ├── styles/           # Global styles
+│   └── ...
+```

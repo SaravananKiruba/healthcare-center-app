@@ -1,0 +1,13 @@
+{
+  "/_app": "pages/_app.js",
+  "/_error": "pages/_error.js",
+  "/_document": "pages/_document.js",
+  "/api/patients": "pages/api/patients.js",
+  "/api/investigations": "pages/api/investigations.js",
+  "/patient/[id]": "pages/patient/[id].js",
+  "/settings": "pages/settings.js",
+  "/patients": "pages/patients.js",
+  "/api/patients/[id]": "pages/api/patients/[id].js",
+  "/api/auth/[...nextauth]": "pages/api/auth/[...nextauth].js",
+  "/login": "pages/login.js"
+}

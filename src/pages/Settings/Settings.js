@@ -29,8 +29,8 @@ import {  FiSave,
   FiDownload,
   FiUpload,
 } from 'react-icons/fi';
-import { useAuth } from '../../context/AuthContext';
-import UserManagement from '../../components/UserManagement/UserManagement';
+import { useAuth } from '../../lib/auth/AuthContext';
+import UserManagement from '../../components/admin/UserManagement';
 
 const Settings = () => {  const toast = useToast();
   const { colorMode, toggleColorMode } = useColorMode();
@@ -318,7 +318,7 @@ const Settings = () => {  const toast = useToast();
                           <Icon as={FiDownload} boxSize={8} color="green.500" />
                           <Heading size="sm">Export Data</Heading>
                           <Text fontSize="sm" textAlign="center" color="gray.600">
-                            Download all your patient records, treatments, and invoices.
+                            Download all your patient records.
                           </Text>
                           <Button
                             leftIcon={<FiDownload />}

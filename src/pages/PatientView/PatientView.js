@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Button,
@@ -43,8 +43,10 @@ import {
   Select,
   Textarea,
   IconButton,
+  Switch,
 } from '@chakra-ui/react';
-import { useParams, Link as RouterLink, useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/router';
+import Link from 'next/link';
 import {
   FiUser,
   FiCalendar,
@@ -59,53 +61,47 @@ import {
   FiCheck,
   FiX,
   FiSave,
-  FiPrinter,
 } from 'react-icons/fi';
 import { useAppContext } from '../../context/AppContext';
+import { formatDate } from '../../utils/dataTransform';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 
 // Placeholder components for tabs - these would be imported from their own files in a complete implementation
 
-const PatientView = () => {
-  const { id } = useParams();
-  const navigate = useNavigate();
+const PatientView = ({ patientId }) => {
+  const router = useRouter();
+  const { id } = router.query;
   const toast = useToast();
   const { patients, doctors, deletePatient, updatePatient, currentUser } = useAppContext();
   const { isOpen: isDeleteModalOpen, onOpen: onOpenDeleteModal, onClose: onCloseDeleteModal } = useDisclosure();
   const { isOpen: isEditModalOpen, onOpen: onOpenEditModal, onClose: onCloseEditModal } = useDisclosure();
   
-  // Find the patient with the given ID
-  const patient = patients.find(p => p.id === id);
+  // Use patientId prop or id from router
+  const currentPatientId = patientId || id;
   
-  // Check if patient exists
-  if (!patient) {
+  // Find the patient with the given ID
+  const patient = patients.find(p => p.id === currentPatientId);
+  
+  // Check if current user can edit patient data - admins and doctors can edit, plus the user who created the patient
+  const canEdit = currentUser && (['admin', 'doctor'].includes(currentUser.role) || (patient && patient.userId === currentUser.id));
+  
+  // Check if patient exists or if we're still waiting for data
+  if (!currentPatientId || !patient) {
     return (
       <Box textAlign="center" py="10">
         <Heading size="lg" mb="4">Patient Not Found</Heading>
         <Text mb="6">The patient you're looking for doesn't exist or has been removed.</Text>
-        <Button as={RouterLink} to="/patients" leftIcon={<FiArrowLeft />}>
-          Back to Patient List
-        </Button>
+        <Link href="/patients" passHref>
+          <Button as="a" leftIcon={<FiArrowLeft />}>
+            Back to Patient List
+          </Button>
+        </Link>
       </Box>
     );
   }
-    // Format date for display
-  const formatDate = (dateString) => {
-    try {
-      if (!dateString) return "N/A";
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return dateString; // Return original string if invalid
-      
-      return new Intl.DateTimeFormat('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      }).format(date);
-    } catch (error) {
-      return dateString || "N/A";
-    }
-  };
+  
+  // Using the imported formatDate function from utils/dataTransform.js
   
   // Handle delete patient
   const handleDeletePatient = () => {
@@ -119,7 +115,7 @@ const PatientView = () => {
       isClosable: true,
     });
     
-    navigate('/patients');
+    router.push('/patients');
   };
   
   // Handle save patient edit
@@ -145,10 +141,10 @@ const PatientView = () => {
     }
   };
 
-  // Check user permissions
-  const canEdit = ['admin', 'doctor'].includes(currentUser.role);
+  // Check delete permissions - only admins can delete
   const canDelete = currentUser.role === 'admin';
   
+  // Return component
   return (
     <Box>
       <Flex 
@@ -158,16 +154,19 @@ const PatientView = () => {
         mb="6"
       >
         <HStack mb={{ base: 4, md: 0 }}>
-          <Button
-            as={RouterLink}
-            to="/patients"
-            variant="outline"
-            leftIcon={<FiArrowLeft />}
-            size="sm"
-          >
-            Back
-          </Button>
-          <Heading size="lg">Patient Detail</Heading>
+          <Link href="/patients" passHref>
+            <Button
+              as="a"
+              variant="outline"
+              leftIcon={<FiArrowLeft />}
+              size="sm"
+            >
+              Back
+            </Button>
+          </Link>
+          <Flex align="center">
+            <Heading size="lg">Patient Detail</Heading>
+          </Flex>
         </HStack>
         
         <HStack spacing="3">
@@ -182,15 +181,7 @@ const PatientView = () => {
             </Button>
           )}
           
-          <Button
-            as={RouterLink}
-            to={`/billing/new/${patient.id}`}
-            colorScheme="brand"
-            leftIcon={<FiDollarSign />}
-            size={{ base: 'sm', md: 'md' }}
-          >
-            Create Invoice
-          </Button>
+
           
           {canDelete && (
             <Button
@@ -207,28 +198,37 @@ const PatientView = () => {
       </Flex>
       
       {/* Patient Overview Card */}
-      <Card mb="6">
-        <CardHeader bg="brand.50" py="3">
-          <Heading size="md">Patient Overview</Heading>
+      <Card mb="6" boxShadow="md">
+        <CardHeader bgGradient="linear(to-r, brand.100, brand.200)" py="4" borderTopRadius="lg">
+          <Heading size="md" color="gray.700">Patient Overview</Heading>
         </CardHeader>
         <CardBody>
           <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
-            <HStack align="start" spacing="4">
+            <HStack align="start" spacing="5">
               <Avatar 
                 size="xl" 
                 name={patient.name} 
-                bg="brand.500" 
+                bg="brand.300" 
+                color="white"
+                boxShadow="md"
+                borderWidth="3px"
+                borderColor="brand.100"
               />
               <Box>
-                <Heading size="md">{patient.name}</Heading>
-                <HStack mt="1">
-                  <Text color="gray.600">ID: </Text>
-                  <Text fontWeight="semibold" fontFamily="mono">{patient.id}</Text>
+                <Heading size="md" color="brand.600">{patient.name}</Heading>
+                <HStack mt="2">
+                  <Text color="gray.600" fontSize="sm">ID: </Text>
+                  <Text fontWeight="semibold" fontFamily="mono" fontSize="sm" bg="brand.50" px={2} py={1} borderRadius="md">{patient.id.substring(0, 8)}</Text>
                 </HStack>
-                <HStack mt="1">
-                  <Badge colorScheme="blue">{patient.sex}</Badge>
-                  <Text fontWeight="semibold">{patient.age} years</Text>
+                <HStack mt="2" spacing={3}>
+                  <Badge bg="brand.300" color="white" py={1} px={2} borderRadius="md">{patient.sex}</Badge>
+                  <Badge bg="brand.400" color="white" py={1} px={2} borderRadius="md">{patient.age} years</Badge>
                 </HStack>
+                {patient.investigations && patient.investigations.length > 0 && (
+                  <Badge bg="brand.200" color="gray.700" mt={2} py={1} px={2} borderRadius="md">
+                    {patient.investigations.length} Investigation(s)
+                  </Badge>
+                )}
               </Box>
             </HStack>
             
@@ -259,58 +259,99 @@ const PatientView = () => {
             </VStack>
             
             <Box gridColumn={{ md: "1 / -1" }}>
-              <Divider my="2" />
-              <Text fontWeight="medium" mb="1">
+              <Divider my="3" borderColor="brand.100" />
+              <Text fontWeight="medium" mb="2" color="brand.600" fontSize="md" display="flex" alignItems="center">
                 <Icon as={FiFileText} mr="2" />
                 Chief Complaints
               </Text>
-              <Text>{patient.chiefComplaints}</Text>
+              <Text bg="brand.50" p={3} borderRadius="md">{patient.chiefComplaints}</Text>
+            </Box>
+            
+            {/* Quick Investigation Summary */}
+            <Box gridColumn={{ md: "1 / -1" }} mt={2}>
+              <Divider my="3" borderColor="brand.100" />
+              <Flex alignItems="center" justifyContent="space-between">
+                <Text fontWeight="medium" color="brand.600" fontSize="md" display="flex" alignItems="center">
+                  <Icon as={FiFileText} mr="2" />
+                  Recent Investigations
+                </Text>
+                {canEdit && (
+                  <Button 
+                    size="xs" 
+                    bg="brand.100"
+                    color="gray.700"
+                    _hover={{ bg: "brand.200" }}
+                    leftIcon={<FiPlusCircle />}
+                    onClick={() => setIsAddModalOpen(true)}
+                    boxShadow="sm"
+                  >
+                    Add
+                  </Button>
+                )}
+              </Flex>
+              
+              <Box mt={2} bg="brand.50" p={3} borderRadius="md">
+                {patient.investigations && patient.investigations.length > 0 ? (
+                  <HStack spacing={2} flexWrap="wrap">
+                    {patient.investigations.slice(0, 3).map(inv => (
+                      <Badge 
+                        key={inv.id} 
+                        bg="brand.200" 
+                        color="gray.700" 
+                        p={2} 
+                        borderRadius="md"
+                        display="flex"
+                        alignItems="center"
+                      >
+                        {inv.type} - {formatDate(inv.date)}
+                      </Badge>
+                    ))}
+                    {patient.investigations.length > 3 && (
+                      <Badge bg="brand.300" color="white" p={2} borderRadius="md">
+                        +{patient.investigations.length - 3} more
+                      </Badge>
+                    )}
+                  </HStack>
+                ) : (
+                  <Text fontSize="sm" color="gray.500">No investigations recorded yet</Text>
+                )}
+              </Box>
             </Box>
           </SimpleGrid>
         </CardBody>
       </Card>
       
       {/* Patient Tabs */}
-      <Tabs isLazy colorScheme="brand">
-        <TabList overflowX="auto" flexWrap="nowrap" py="2">
-          <Tab>Medical History</Tab>
-          <Tab>Physical Generals</Tab>
-          {patient.sex === 'Female' && <Tab>Menstrual History</Tab>}
-          <Tab>Food & Habits</Tab>
-          <Tab>Investigations</Tab>
-          <Tab>Treatment Details</Tab>
-          <Tab>Billing</Tab>
+      <Tabs isLazy colorScheme="brand" defaultIndex={0} boxShadow="md" bg="white" borderRadius="lg" p="4">
+        <TabList overflowX="auto" flexWrap="nowrap" py="2" borderBottom="2px" borderColor="brand.200">
+          <Tab fontWeight="medium" _selected={{ color: "brand.600", borderColor: "brand.300", bg: "brand.50" }}>Investigations & Reports</Tab>
+          <Tab _selected={{ color: "brand.600", borderColor: "brand.300", bg: "brand.50" }}>Medical History</Tab>
+          <Tab _selected={{ color: "brand.600", borderColor: "brand.300", bg: "brand.50" }}>Physical Generals</Tab>
+          {patient.sex === 'Female' && <Tab _selected={{ color: "brand.600", borderColor: "brand.300", bg: "brand.50" }}>Menstrual History</Tab>}
+          <Tab _selected={{ color: "brand.600", borderColor: "brand.300", bg: "brand.50" }}>Food & Habits</Tab>
         </TabList>
         
         <TabPanels mt="4">
-          <TabPanel p="0">
-            <MedicalHistoryTab patient={patient} canEdit={canEdit} />
-          </TabPanel>
-          
-          <TabPanel p="0">
-            <PhysicalGeneralsTab patient={patient} canEdit={canEdit} />
-          </TabPanel>
-          
-          {patient.sex === 'Female' && (
-            <TabPanel p="0">
-              <MenstrualHistoryTab patient={patient} canEdit={canEdit} />
-            </TabPanel>
-          )}
-          
-          <TabPanel p="0">
-            <FoodHabitsTab patient={patient} canEdit={canEdit} />
-          </TabPanel>
-          
           <TabPanel p="0">
             <InvestigationsTab patient={patient} canEdit={canEdit} />
           </TabPanel>
           
           <TabPanel p="0">
-            <TreatmentTab patient={patient} doctors={doctors} canEdit={canEdit} />
+            <MedicalHistoryTab patient={patient} />
           </TabPanel>
           
           <TabPanel p="0">
-            <BillingTab patient={patient} />
+            <PhysicalGeneralsTab patient={patient} />
+          </TabPanel>
+          
+          {patient.sex === 'Female' && (
+            <TabPanel p="0">
+              <MenstrualHistoryTab patient={patient} />
+            </TabPanel>
+          )}
+          
+          <TabPanel p="0">
+            <FoodHabitsTab patient={patient} />
           </TabPanel>
         </TabPanels>
       </Tabs>
@@ -324,8 +365,7 @@ const PatientView = () => {
           <ModalBody>
             <Text>
               Are you sure you want to delete <strong>{patient.name}'s</strong> record?
-              This will permanently remove all their data including medical history, 
-              treatments, and billing information.
+              This will permanently remove all their data including medical history.
             </Text>
           </ModalBody>
 
@@ -372,9 +412,10 @@ const PatientEditModal = ({ isOpen, onClose, patient, onSave }) => {
     chiefComplaints: Yup.string().required('Chief complaints are required'),
   });
 
-  // Formik form handling
+  // Initialize the form with all patient data
   const formik = useFormik({
     initialValues: {
+      // Basic information
       name: patient.name || '',
       guardianName: patient.guardianName || '',
       address: patient.address || '',
@@ -383,12 +424,53 @@ const PatientEditModal = ({ isOpen, onClose, patient, onSave }) => {
       occupation: patient.occupation || '',
       mobileNumber: patient.mobileNumber || '',
       chiefComplaints: patient.chiefComplaints || '',
+      
+      // Medical History - Past History
+      pastAllergy: patient.medicalHistory?.pastHistory?.allergy || false,
+      pastAnemia: patient.medicalHistory?.pastHistory?.anemia || false,
+      pastArthritis: patient.medicalHistory?.pastHistory?.arthritis || false,
+      pastAsthma: patient.medicalHistory?.pastHistory?.asthma || false,
+      pastCancer: patient.medicalHistory?.pastHistory?.cancer || false,
+      pastDiabetes: patient.medicalHistory?.pastHistory?.diabetes || false,
+      pastHeartDisease: patient.medicalHistory?.pastHistory?.heartDisease || false,
+      pastHypertension: patient.medicalHistory?.pastHistory?.hypertension || false,
+      pastThyroid: patient.medicalHistory?.pastHistory?.thyroid || false,
+      pastTuberculosis: patient.medicalHistory?.pastHistory?.tuberculosis || false,
+      
+      // Medical History - Family History
+      familyDiabetes: patient.medicalHistory?.familyHistory?.diabetes || false,
+      familyHypertension: patient.medicalHistory?.familyHistory?.hypertension || false,
+      familyThyroid: patient.medicalHistory?.familyHistory?.thyroid || false,
+      familyTuberculosis: patient.medicalHistory?.familyHistory?.tuberculosis || false,
+      familyCancer: patient.medicalHistory?.familyHistory?.cancer || false,
+      
+      // Physical Generals
+      appetite: patient.physicalGenerals?.appetite || '',
+      bowel: patient.physicalGenerals?.bowel || '',
+      urine: patient.physicalGenerals?.urine || '',
+      sweating: patient.physicalGenerals?.sweating || '',
+      sleep: patient.physicalGenerals?.sleep || '',
+      thirst: patient.physicalGenerals?.thirst || '',
+      addictions: patient.physicalGenerals?.addictions || '',
+      
+      // Menstrual History (for female patients)
+      menses: patient.menstrualHistory?.menses || '',
+      menopause: patient.menstrualHistory?.menopause || 'No',
+      leucorrhoea: patient.menstrualHistory?.leucorrhoea || '',
+      gonorrhea: patient.menstrualHistory?.gonorrhea || 'No',
+      otherDischarges: patient.menstrualHistory?.otherDischarges || '',
+      
+      // Food and Habits
+      foodHabit: patient.foodAndHabit?.foodHabit || '',
+      foodAddictions: patient.foodAndHabit?.addictions || '',
     },
     validationSchema,
     onSubmit: async (values) => {
       try {
+        // Build the updated patient object with all fields
         const updatedPatient = {
           ...patient,
+          // Basic information
           name: values.name,
           guardianName: values.guardianName,
           address: values.address,
@@ -397,6 +479,55 @@ const PatientEditModal = ({ isOpen, onClose, patient, onSave }) => {
           occupation: values.occupation || '',
           mobileNumber: values.mobileNumber,
           chiefComplaints: values.chiefComplaints,
+          
+          // Medical history
+          medicalHistory: {
+            pastHistory: {
+              allergy: values.pastAllergy,
+              anemia: values.pastAnemia,
+              arthritis: values.pastArthritis,
+              asthma: values.pastAsthma,
+              cancer: values.pastCancer,
+              diabetes: values.pastDiabetes,
+              heartDisease: values.pastHeartDisease,
+              hypertension: values.pastHypertension,
+              thyroid: values.pastThyroid,
+              tuberculosis: values.pastTuberculosis,
+            },
+            familyHistory: {
+              diabetes: values.familyDiabetes,
+              hypertension: values.familyHypertension,
+              thyroid: values.familyThyroid,
+              tuberculosis: values.familyTuberculosis,
+              cancer: values.familyCancer,
+            }
+          },
+          
+          // Physical generals
+          physicalGenerals: {
+            appetite: values.appetite,
+            bowel: values.bowel,
+            urine: values.urine,
+            sweating: values.sweating,
+            sleep: values.sleep,
+            thirst: values.thirst,
+            addictions: values.addictions,
+          },
+          
+          // Menstrual history (only for female patients)
+          menstrualHistory: values.sex === 'Female' ? {
+            menses: values.menses,
+            menopause: values.menopause,
+            leucorrhoea: values.leucorrhoea,
+            gonorrhea: values.gonorrhea,
+            otherDischarges: values.otherDischarges,
+          } : null,
+          
+          // Food and habit
+          foodAndHabit: {
+            foodHabit: values.foodHabit,
+            addictions: values.foodAddictions,
+          }
         };
         
         await onSave(updatedPatient);
@@ -525,1911 +656,1197 @@ const PatientEditModal = ({ isOpen, onClose, patient, onSave }) => {
                 <FormErrorMessage>{formik.errors.chiefComplaints}</FormErrorMessage>
               </FormControl>
             </SimpleGrid>
+            
+            {/* Tabs for additional patient information */}
+            <Box gridColumn={{ md: 'span 2' }} mt={4}>
+              <Tabs variant="enclosed" colorScheme="brand">
+                <TabList>
+                  <Tab>Medical History</Tab>
+                  <Tab>Physical Generals</Tab>
+                  {formik.values.sex === 'Female' && <Tab>Menstrual History</Tab>}
+                  <Tab>Food & Habits</Tab>
+                </TabList>
+                
+                <TabPanels>
+                  {/* Medical History Tab */}
+                  <TabPanel>
+                    <Box>
+                      <Heading size="sm" mb={3}>Past History</Heading>
+                      <SimpleGrid columns={{ base: 2, md: 3 }} spacing={4}>
+                        <FormControl display="flex" alignItems="center">
+                          <input
+                            type="checkbox"
+                            id="pastAllergy"
+                            name="pastAllergy"
+                            checked={formik.values.pastAllergy}
+                            onChange={formik.handleChange}
+                            style={{ marginRight: '8px' }}
+                          />
+                          <FormLabel htmlFor="pastAllergy" mb={0}>Allergy</FormLabel>
+                        </FormControl>
+                        
+                        <FormControl display="flex" alignItems="center">
+                          <input
+                            type="checkbox"
+                            id="pastAnemia"
+                            name="pastAnemia"
+                            checked={formik.values.pastAnemia}
+                            onChange={formik.handleChange}
+                            style={{ marginRight: '8px' }}
+                          />
+                          <FormLabel htmlFor="pastAnemia" mb={0}>Anemia</FormLabel>
+                        </FormControl>
+                        
+                        <FormControl display="flex" alignItems="center">
+                          <input
+                            type="checkbox"
+                            id="pastArthritis"
+                            name="pastArthritis"
+                            checked={formik.values.pastArthritis}
+                            onChange={formik.handleChange}
+                            style={{ marginRight: '8px' }}
+                          />
+                          <FormLabel htmlFor="pastArthritis" mb={0}>Arthritis</FormLabel>
+                        </FormControl>
+                        
+                        <FormControl display="flex" alignItems="center">
+                          <input
+                            type="checkbox"
+                            id="pastAsthma"
+                            name="pastAsthma"
+                            checked={formik.values.pastAsthma}
+                            onChange={formik.handleChange}
+                            style={{ marginRight: '8px' }}
+                          />
+                          <FormLabel htmlFor="pastAsthma" mb={0}>Asthma</FormLabel>
+                        </FormControl>
+                        
+                        <FormControl display="flex" alignItems="center">
+                          <input
+                            type="checkbox"
+                            id="pastCancer"
+                            name="pastCancer"
+                            checked={formik.values.pastCancer}
+                            onChange={formik.handleChange}
+                            style={{ marginRight: '8px' }}
+                          />
+                          <FormLabel htmlFor="pastCancer" mb={0}>Cancer</FormLabel>
+                        </FormControl>
+                        
+                        <FormControl display="flex" alignItems="center">
+                          <input
+                            type="checkbox"
+                            id="pastDiabetes"
+                            name="pastDiabetes"
+                            checked={formik.values.pastDiabetes}
+                            onChange={formik.handleChange}
+                            style={{ marginRight: '8px' }}
+                          />
+                          <FormLabel htmlFor="pastDiabetes" mb={0}>Diabetes</FormLabel>
+                        </FormControl>
+                        
+                        <FormControl display="flex" alignItems="center">
+                          <input
+                            type="checkbox"
+                            id="pastHeartDisease"
+                            name="pastHeartDisease"
+                            checked={formik.values.pastHeartDisease}
+                            onChange={formik.handleChange}
+                            style={{ marginRight: '8px' }}
+                          />
+                          <FormLabel htmlFor="pastHeartDisease" mb={0}>Heart Disease</FormLabel>
+                        </FormControl>
+                        
+                        <FormControl display="flex" alignItems="center">
+                          <input
+                            type="checkbox"
+                            id="pastHypertension"
+                            name="pastHypertension"
+                            checked={formik.values.pastHypertension}
+                            onChange={formik.handleChange}
+                            style={{ marginRight: '8px' }}
+                          />
+                          <FormLabel htmlFor="pastHypertension" mb={0}>Hypertension</FormLabel>
+                        </FormControl>
+                        
+                        <FormControl display="flex" alignItems="center">
+                          <input
+                            type="checkbox"
+                            id="pastThyroid"
+                            name="pastThyroid"
+                            checked={formik.values.pastThyroid}
+                            onChange={formik.handleChange}
+                            style={{ marginRight: '8px' }}
+                          />
+                          <FormLabel htmlFor="pastThyroid" mb={0}>Thyroid</FormLabel>
+                        </FormControl>
+                        
+                        <FormControl display="flex" alignItems="center">
+                          <input
+                            type="checkbox"
+                            id="pastTuberculosis"
+                            name="pastTuberculosis"
+                            checked={formik.values.pastTuberculosis}
+                            onChange={formik.handleChange}
+                            style={{ marginRight: '8px' }}
+                          />
+                          <FormLabel htmlFor="pastTuberculosis" mb={0}>Tuberculosis</FormLabel>
+                        </FormControl>
+                      </SimpleGrid>
+                      
+                      <Divider my={4} />
+                      
+                      <Heading size="sm" mb={3}>Family History</Heading>
+                      <SimpleGrid columns={{ base: 2, md: 3 }} spacing={4}>
+                        <FormControl display="flex" alignItems="center">
+                          <input
+                            type="checkbox"
+                            id="familyDiabetes"
+                            name="familyDiabetes"
+                            checked={formik.values.familyDiabetes}
+                            onChange={formik.handleChange}
+                            style={{ marginRight: '8px' }}
+                          />
+                          <FormLabel htmlFor="familyDiabetes" mb={0}>Diabetes</FormLabel>
+                        </FormControl>
+                        
+                        <FormControl display="flex" alignItems="center">
+                          <input
+                            type="checkbox"
+                            id="familyHypertension"
+                            name="familyHypertension"
+                            checked={formik.values.familyHypertension}
+                            onChange={formik.handleChange}
+                            style={{ marginRight: '8px' }}
+                          />
+                          <FormLabel htmlFor="familyHypertension" mb={0}>Hypertension</FormLabel>
+                        </FormControl>
+                        
+                        <FormControl display="flex" alignItems="center">
+                          <input
+                            type="checkbox"
+                            id="familyThyroid"
+                            name="familyThyroid"
+                            checked={formik.values.familyThyroid}
+                            onChange={formik.handleChange}
+                            style={{ marginRight: '8px' }}
+                          />
+                          <FormLabel htmlFor="familyThyroid" mb={0}>Thyroid</FormLabel>
+                        </FormControl>
+                        
+                        <FormControl display="flex" alignItems="center">
+                          <input
+                            type="checkbox"
+                            id="familyTuberculosis"
+                            name="familyTuberculosis"
+                            checked={formik.values.familyTuberculosis}
+                            onChange={formik.handleChange}
+                            style={{ marginRight: '8px' }}
+                          />
+                          <FormLabel htmlFor="familyTuberculosis" mb={0}>Tuberculosis</FormLabel>
+                        </FormControl>
+                        
+                        <FormControl display="flex" alignItems="center">
+                          <input
+                            type="checkbox"
+                            id="familyCancer"
+                            name="familyCancer"
+                            checked={formik.values.familyCancer}
+                            onChange={formik.handleChange}
+                            style={{ marginRight: '8px' }}
+                          />
+                          <FormLabel htmlFor="familyCancer" mb={0}>Cancer</FormLabel>
+                        </FormControl>
+                      </SimpleGrid>
+                    </Box>
+                  </TabPanel>
+                  
+                  {/* Physical Generals Tab */}
+                  <TabPanel>
+                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                      <FormControl>
+                        <FormLabel>Appetite</FormLabel>
+                        <Input
+                          name="appetite"
+                          value={formik.values.appetite}
+                          onChange={formik.handleChange}
+                          placeholder="Appetite details"
+                        />
+                      </FormControl>
+                      
+                      <FormControl>
+                        <FormLabel>Thirst</FormLabel>
+                        <Input
+                          name="thirst"
+                          value={formik.values.thirst}
+                          onChange={formik.handleChange}
+                          placeholder="Thirst details"
+                        />
+                      </FormControl>
+                      
+                      <FormControl>
+                        <FormLabel>Sleep</FormLabel>
+                        <Input
+                          name="sleep"
+                          value={formik.values.sleep}
+                          onChange={formik.handleChange}
+                          placeholder="Sleep patterns"
+                        />
+                      </FormControl>
+                      
+                      <FormControl>
+                        <FormLabel>Bowel</FormLabel>
+                        <Input
+                          name="bowel"
+                          value={formik.values.bowel}
+                          onChange={formik.handleChange}
+                          placeholder="Bowel habits"
+                        />
+                      </FormControl>
+                      
+                      <FormControl>
+                        <FormLabel>Urine</FormLabel>
+                        <Input
+                          name="urine"
+                          value={formik.values.urine}
+                          onChange={formik.handleChange}
+                          placeholder="Urinary habits"
+                        />
+                      </FormControl>
+                      
+                      <FormControl>
+                        <FormLabel>Sweating</FormLabel>
+                        <Input
+                          name="sweating"
+                          value={formik.values.sweating}
+                          onChange={formik.handleChange}
+                          placeholder="Sweating patterns"
+                        />
+                      </FormControl>
+                      
+                      <FormControl gridColumn={{ md: 'span 2' }}>
+                        <FormLabel>Addictions</FormLabel>
+                        <Input
+                          name="addictions"
+                          value={formik.values.addictions}
+                          onChange={formik.handleChange}
+                          placeholder="Any addictions"
+                        />
+                      </FormControl>
+                    </SimpleGrid>
+                  </TabPanel>
+                  
+                  {/* Menstrual History Tab (Female only) */}
+                  {formik.values.sex === 'Female' && (
+                    <TabPanel>
+                      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                        <FormControl>
+                          <FormLabel>Menses</FormLabel>
+                          <Input
+                            name="menses"
+                            value={formik.values.menses}
+                            onChange={formik.handleChange}
+                            placeholder="Menstrual details"
+                          />
+                        </FormControl>
+                        
+                        <FormControl>
+                          <FormLabel>Menopause</FormLabel>
+                          <Select
+                            name="menopause"
+                            value={formik.values.menopause}
+                            onChange={formik.handleChange}
+                          >
+                            <option value="No">No</option>
+                            <option value="Yes">Yes</option>
+                            <option value="Perimenopause">Perimenopause</option>
+                          </Select>
+                        </FormControl>
+                        
+                        <FormControl>
+                          <FormLabel>Leucorrhoea</FormLabel>
+                          <Input
+                            name="leucorrhoea"
+                            value={formik.values.leucorrhoea}
+                            onChange={formik.handleChange}
+                            placeholder="Leucorrhoea details"
+                          />
+                        </FormControl>
+                        
+                        <FormControl>
+                          <FormLabel>Gonorrhea</FormLabel>
+                          <Select
+                            name="gonorrhea"
+                            value={formik.values.gonorrhea}
+                            onChange={formik.handleChange}
+                          >
+                            <option value="No">No</option>
+                            <option value="Yes">Yes</option>
+                            <option value="Unknown">Unknown</option>
+                          </Select>
+                        </FormControl>
+                        
+                        <FormControl gridColumn={{ md: 'span 2' }}>
+                          <FormLabel>Other Discharges</FormLabel>
+                          <Textarea
+                            name="otherDischarges"
+                            value={formik.values.otherDischarges}
+                            onChange={formik.handleChange}
+                            placeholder="Details of other discharges"
+                          />
+                        </FormControl>
+                      </SimpleGrid>
+                    </TabPanel>
+                  )}
+                  
+                  {/* Food and Habits Tab */}
+                  <TabPanel>
+                    <SimpleGrid columns={1} spacing={4}>
+                      <FormControl>
+                        <FormLabel>Food Habit</FormLabel>
+                        <Input
+                          name="foodHabit"
+                          value={formik.values.foodHabit}
+                          onChange={formik.handleChange}
+                          placeholder="Diet preferences, restrictions"
+                        />
+                      </FormControl>
+                      
+                      <FormControl>
+                        <FormLabel>Food Addictions</FormLabel>
+                        <Textarea
+                          name="foodAddictions"
+                          value={formik.values.foodAddictions}
+                          onChange={formik.handleChange}
+                          placeholder="Food cravings or addictions"
+                        />
+                      </FormControl>
+                    </SimpleGrid>
+                  </TabPanel>
+                </TabPanels>
+              </Tabs>
+            </Box>
+            
+            <Box mt={6} display="flex" justifyContent="flex-end">
+              <Button variant="outline" mr={3} onClick={onClose}>
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                colorScheme="brand"
+                leftIcon={<FiSave />}
+                isLoading={formik.isSubmitting}
+              >
+                Save Changes
+              </Button>
+            </Box>
           </form>
         </ModalBody>
-        <ModalFooter>
-          <Button variant="outline" mr={3} onClick={onClose}>
-            Cancel
-          </Button>
-          <Button 
-            colorScheme="brand" 
-            leftIcon={<FiSave />} 
-            isLoading={formik.isSubmitting}
-            onClick={formik.handleSubmit}
-          >
-            Save Changes
-          </Button>
-        </ModalFooter>
       </ModalContent>
     </Modal>
   );
 };
 
-// Placeholder components for tabs
-// These would be moved to their own files in a complete implementation
-const MedicalHistoryTab = ({ patient, canEdit }) => {
-  const { updatePatient } = useAppContext();
-  const toast = useToast();
-  const { isOpen, onOpen, onClose } = useDisclosure();
-  const [medicalHistory, setMedicalHistory] = useState(patient.medicalHistory);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  // Handle toggling of medical history values
-  const handleToggle = (category, condition) => {
-    setMedicalHistory(prev => ({
-      ...prev,
-      [category]: {
-        ...prev[category],
-        [condition]: !prev[category][condition]
-      }
-    }));
-  };
-  
-  // Save changes to medical history
-  const handleSave = async () => {
-    try {
-      setIsSubmitting(true);
-      // Update patient with new medical history
-      await updatePatient(patient.id, {
-        ...patient,
-        medicalHistory
-      });
-      
-      toast({
-        title: 'Medical history updated',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
-      onClose();
-    } catch (error) {
-      toast({
-        title: 'Failed to update medical history',
-        description: error.message,
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+// Tab components
+
+const MedicalHistoryTab = ({ patient }) => {
+  const medicalHistory = patient.medicalHistory || {
+    pastHistory: {},
+    familyHistory: {}
   };
   
   return (
     <Card>
-      <CardHeader bg="gray.50" py="3">
-        <Flex justify="space-between" align="center">
-          <Heading size="md">Medical History</Heading>
-          {canEdit && (
-            <Button size="sm" leftIcon={<FiEdit />} variant="ghost" onClick={onOpen}>
-              Edit
-            </Button>
-          )}
-        </Flex>
+      <CardHeader bg="brand.50" py="3">
+        <Heading size="md">Medical History</Heading>
       </CardHeader>
       <CardBody>
         <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
           <Box>
-            <Heading size="sm" mb="3">Past History</Heading>
-            <SimpleGrid columns={2} spacing={3}>
-              {Object.entries(patient.medicalHistory.pastHistory).map(([condition, value]) => (
-                <HStack key={condition}>
-                  <Icon 
-                    as={value ? FiCheck : FiX} 
-                    color={value ? 'green.500' : 'red.500'} 
-                  />
-                  <Text>
-                    {condition.charAt(0).toUpperCase() + condition.slice(1)}
-                  </Text>
-                </HStack>
-              ))}
-            </SimpleGrid>
+            <Heading size="sm" mb={3}>Past Medical History</Heading>
+            <TableContainer>
+              <Table variant="simple" size="sm">
+                <Tbody>
+                  {/*
+                    { key: 'allergy', label: 'Allergy' },
+                    { key: 'anemia', label: 'Anemia' },
+                    { key: 'arthritis', label: 'Arthritis' },
+                    { key: 'asthma', label: 'Asthma' },
+                    { key: 'cancer', label: 'Cancer' },
+                    { key: 'diabetes', label: 'Diabetes' },
+                    { key: 'heartDisease', label: 'Heart Disease' },
+                    { key: 'hypertension', label: 'Hypertension' },
+                    { key: 'thyroid', label: 'Thyroid' },
+                    { key: 'tuberculosis', label: 'Tuberculosis' }
+                  */}
+                  {Object.entries(medicalHistory.pastHistory).map(([key, value]) => (
+                    <Tr key={key}>
+                      <Td width="70%">{key.charAt(0).toUpperCase() + key.slice(1)}</Td>
+                      <Td>
+                        {value ? 
+                          <Badge colorScheme="red">Yes</Badge> : 
+                          <Badge colorScheme="green">No</Badge>
+                        }
+                      </Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            </TableContainer>
           </Box>
           
           <Box>
-            <Heading size="sm" mb="3">Family History</Heading>
-            <SimpleGrid columns={2} spacing={3}>
-              {Object.entries(patient.medicalHistory.familyHistory).map(([condition, value]) => (
-                <HStack key={condition}>
-                  <Icon 
-                    as={value ? FiCheck : FiX} 
-                    color={value ? 'green.500' : 'red.500'} 
-                  />
-                  <Text>
-                    {condition.charAt(0).toUpperCase() + condition.slice(1)}
-                  </Text>
-                </HStack>
-              ))}
-            </SimpleGrid>
+            <Heading size="sm" mb={3}>Family History</Heading>
+            <TableContainer>
+              <Table variant="simple" size="sm">
+                <Tbody>
+                  {Object.entries(medicalHistory.familyHistory).map(([key, value]) => (
+                    <Tr key={key}>
+                      <Td width="70%">{key.charAt(0).toUpperCase() + key.slice(1)}</Td>
+                      <Td>
+                        {value ? 
+                          <Badge colorScheme="red">Yes</Badge> : 
+                          <Badge colorScheme="green">No</Badge>
+                        }
+                      </Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            </TableContainer>
           </Box>
         </SimpleGrid>
-        
-        {/* Medical History Edit Modal */}
-        <Modal isOpen={isOpen} onClose={onClose} size="lg">
-          <ModalOverlay />
-          <ModalContent>
-            <ModalHeader>Edit Medical History</ModalHeader>
-            <ModalCloseButton />
-            <ModalBody>
-              <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
-                <Box>
-                  <Heading size="sm" mb="3">Past History</Heading>
-                  {Object.entries(medicalHistory.pastHistory).map(([condition, value]) => (
-                    <HStack key={condition} mb={2}>
-                      <Button 
-                        size="sm" 
-                        colorScheme={value ? 'green' : 'gray'}
-                        onClick={() => handleToggle('pastHistory', condition)}
-                        leftIcon={value ? <FiCheck /> : <FiX />}
-                        variant={value ? 'solid' : 'outline'}
-                      >
-                        {condition.charAt(0).toUpperCase() + condition.slice(1)}
-                      </Button>
-                    </HStack>
-                  ))}
-                </Box>
-                
-                <Box>
-                  <Heading size="sm" mb="3">Family History</Heading>
-                  {Object.entries(medicalHistory.familyHistory).map(([condition, value]) => (
-                    <HStack key={condition} mb={2}>
-                      <Button 
-                        size="sm" 
-                        colorScheme={value ? 'green' : 'gray'}
-                        onClick={() => handleToggle('familyHistory', condition)}
-                        leftIcon={value ? <FiCheck /> : <FiX />}
-                        variant={value ? 'solid' : 'outline'}
-                      >
-                        {condition.charAt(0).toUpperCase() + condition.slice(1)}
-                      </Button>
-                    </HStack>
-                  ))}
-                </Box>
-              </SimpleGrid>
-            </ModalBody>
-            <ModalFooter>
-              <Button variant="ghost" mr={3} onClick={onClose}>
-                Cancel
-              </Button>
-              <Button 
-                colorScheme="brand" 
-                leftIcon={<FiSave />} 
-                onClick={handleSave}
-                isLoading={isSubmitting}
-              >
-                Save Changes
-              </Button>
-            </ModalFooter>
-          </ModalContent>
-        </Modal>
       </CardBody>
     </Card>
   );
 };
 
-const PhysicalGeneralsTab = ({ patient, canEdit }) => {
-  const { updatePatient } = useAppContext();
-  const toast = useToast();
-  const { isOpen, onOpen, onClose } = useDisclosure();
-  const [formData, setFormData] = useState(patient.physicalGenerals);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+const PhysicalGeneralsTab = ({ patient }) => {
+  const physicalGenerals = patient.physicalGenerals || {};
+  const fields = [
+    { key: 'appetite', label: 'Appetite' },
+    { key: 'thirst', label: 'Thirst' },
+    { key: 'sleep', label: 'Sleep' },
+    { key: 'bowel', label: 'Bowel Habits' },
+    { key: 'urine', label: 'Urinary Habits' },
+    { key: 'sweating', label: 'Sweating' },
+    { key: 'addictions', label: 'Addictions' }
+  ];
   
-  // Handle form field changes
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-  
-  // Save changes
-  const handleSave = async () => {
-    try {
-      setIsSubmitting(true);
-      // Update patient with new physical generals data
-      await updatePatient(patient.id, {
-        ...patient,
-        physicalGenerals: formData
-      });
-      
-      toast({
-        title: 'Physical generals updated',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
-      onClose();
-    } catch (error) {
-      toast({
-        title: 'Failed to update physical generals',
-        description: error.message,
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   return (
     <Card>
-      <CardHeader bg="gray.50" py="3">
-        <Flex justify="space-between" align="center">
-          <Heading size="md">Physical Generals</Heading>
-          {canEdit && (
-            <Button size="sm" leftIcon={<FiEdit />} variant="ghost" onClick={onOpen}>
-              Edit
-            </Button>
-          )}
-        </Flex>
+      <CardHeader bg="brand.50" py="3">
+        <Heading size="md">Physical Generals</Heading>
       </CardHeader>
       <CardBody>
-        <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
-          {Object.entries(patient.physicalGenerals).map(([key, value]) => (
-            <Box key={key}>
-              <Text fontWeight="medium">{key.charAt(0).toUpperCase() + key.slice(1)}</Text>
-              <Text>{value || 'Not recorded'}</Text>
-            </Box>
-          ))}
-        </SimpleGrid>
-        
-        {/* Physical Generals Edit Modal */}
-        <Modal isOpen={isOpen} onClose={onClose} size="xl">
-          <ModalOverlay />
-          <ModalContent>
-            <ModalHeader>Edit Physical Generals</ModalHeader>
-            <ModalCloseButton />
-            <ModalBody>
-              <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-                {Object.keys(formData).map((key) => (
-                  <FormControl key={key} mb={3}>
-                    <FormLabel>{key.charAt(0).toUpperCase() + key.slice(1)}</FormLabel>
-                    <Input 
-                      name={key}
-                      value={formData[key] || ''}
-                      onChange={handleChange}
-                    />
-                  </FormControl>
-                ))}
-              </SimpleGrid>
-            </ModalBody>
-            <ModalFooter>
-              <Button variant="ghost" mr={3} onClick={onClose}>
-                Cancel
-              </Button>
-              <Button 
-                colorScheme="brand" 
-                leftIcon={<FiSave />} 
-                onClick={handleSave}
-                isLoading={isSubmitting}
-              >
-                Save Changes
-              </Button>
-            </ModalFooter>
-          </ModalContent>
-        </Modal>
+        <TableContainer>
+          <Table variant="simple" size="md">
+            <Tbody>
+              {fields.map((field) => (
+                <Tr key={field.key}>
+                  <Td fontWeight="medium" width="30%">{field.label}</Td>
+                  <Td>{physicalGenerals[field.key] || 'Not specified'}</Td>
+                </Tr>
+              ))}
+            </Tbody>
+          </Table>
+        </TableContainer>
       </CardBody>
     </Card>
   );
 };
 
-const MenstrualHistoryTab = ({ patient, canEdit }) => {
-  const { updatePatient } = useAppContext();
-  const toast = useToast();
-  const { isOpen, onOpen, onClose } = useDisclosure();
-  const [formData, setFormData] = useState(patient.menstrualHistory || {});
-  const [isSubmitting, setIsSubmitting] = useState(false);
+const MenstrualHistoryTab = ({ patient }) => {
+  const menstrualHistory = patient.menstrualHistory || {};
   
-  // Handle form field changes
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-  
-  // Save changes
-  const handleSave = async () => {
-    try {
-      setIsSubmitting(true);
-      // Update patient with new menstrual history data
-      await updatePatient(patient.id, {
-        ...patient,
-        menstrualHistory: formData
-      });
-      
-      toast({
-        title: 'Menstrual history updated',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
-      onClose();
-    } catch (error) {
-      toast({
-        title: 'Failed to update menstrual history',
-        description: error.message,
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   return (
     <Card>
-      <CardHeader bg="gray.50" py="3">
-        <Flex justify="space-between" align="center">
-          <Heading size="md">Menstrual & Discharge History</Heading>
-          {canEdit && (
-            <Button size="sm" leftIcon={<FiEdit />} variant="ghost" onClick={onOpen}>
-              Edit
-            </Button>
-          )}
-        </Flex>
+      <CardHeader bg="brand.50" py="3">
+        <Heading size="md">Menstrual History</Heading>
       </CardHeader>
       <CardBody>
-        {patient.menstrualHistory ? (
-          <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
-            {Object.entries(patient.menstrualHistory).map(([key, value]) => (
-              <Box key={key}>
-                <Text fontWeight="medium">{key.charAt(0).toUpperCase() + key.slice(1)}</Text>
-                <Text>{value || 'Not recorded'}</Text>
-              </Box>
-            ))}
-          </SimpleGrid>
+        {patient.sex !== 'Female' ? (
+          <Text fontStyle="italic">Not applicable for male patients</Text>
         ) : (
-          <Text>No menstrual history recorded for this patient.</Text>
-        )}
-        
-        {/* Menstrual History Edit Modal */}
-        {patient.menstrualHistory && (
-          <Modal isOpen={isOpen} onClose={onClose} size="xl">
-            <ModalOverlay />
-            <ModalContent>
-              <ModalHeader>Edit Menstrual History</ModalHeader>
-              <ModalCloseButton />
-              <ModalBody>
-                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-                  <FormControl>
-                    <FormLabel>Menses</FormLabel>
-                    <Textarea
-                      name="menses"
-                      value={formData.menses || ''}
-                      onChange={handleChange}
-                      placeholder="Details about menses"
-                      rows={3}
-                    />
-                  </FormControl>
-                  
-                  <FormControl>
-                    <FormLabel>Menopause</FormLabel>
-                    <Select
-                      name="menopause"
-                      value={formData.menopause || 'No'}
-                      onChange={handleChange}
-                    >
-                      <option value="No">No</option>
-                      <option value="Yes">Yes</option>
-                      <option value="In Progress">In Progress</option>
-                    </Select>
-                  </FormControl>
-                  
-                  <FormControl>
-                    <FormLabel>Leucorrhoea</FormLabel>
-                    <Textarea
-                      name="leucorrhoea"
-                      value={formData.leucorrhoea || ''}
-                      onChange={handleChange}
-                      placeholder="Details about leucorrhoea"
-                      rows={3}
-                    />
-                  </FormControl>
-                  
-                  <FormControl>
-                    <FormLabel>Gonorrhea</FormLabel>
-                    <Select
-                      name="gonorrhea"
-                      value={formData.gonorrhea || 'No'}
-                      onChange={handleChange}
-                    >
-                      <option value="No">No</option>
-                      <option value="Yes">Yes</option>
-                      <option value="Unknown">Unknown</option>
-                    </Select>
-                  </FormControl>
-                  
-                  <FormControl gridColumn={{ md: 'span 2' }}>
-                    <FormLabel>Other Discharges</FormLabel>
-                    <Textarea
-                      name="otherDischarges"
-                      value={formData.otherDischarges || ''}
-                      onChange={handleChange}
-                      placeholder="Details about other discharges"
-                      rows={3}
-                    />
-                  </FormControl>
-                </SimpleGrid>
-              </ModalBody>
-              <ModalFooter>
-                <Button variant="ghost" mr={3} onClick={onClose}>
-                  Cancel
-                </Button>
-                <Button 
-                  colorScheme="brand" 
-                  leftIcon={<FiSave />} 
-                  onClick={handleSave}
-                  isLoading={isSubmitting}
-                >
-                  Save Changes
-                </Button>
-              </ModalFooter>
-            </ModalContent>
-          </Modal>
+          <TableContainer>
+            <Table variant="simple" size="md">
+              <Tbody>
+                <Tr>
+                  <Td fontWeight="medium" width="30%">Menses</Td>
+                  <Td>{menstrualHistory.menses || 'Not specified'}</Td>
+                </Tr>
+                <Tr>
+                  <Td fontWeight="medium">Menopause</Td>
+                  <Td>{menstrualHistory.menopause || 'No'}</Td>
+                </Tr>
+                <Tr>
+                  <Td fontWeight="medium">Leucorrhoea</Td>
+                  <Td>{menstrualHistory.leucorrhoea || 'Not specified'}</Td>
+                </Tr>
+                <Tr>
+                  <Td fontWeight="medium">Gonorrhea</Td>
+                  <Td>{menstrualHistory.gonorrhea || 'No'}</Td>
+                </Tr>
+                <Tr>
+                  <Td fontWeight="medium">Other Discharges</Td>
+                  <Td>{menstrualHistory.otherDischarges || 'None'}</Td>
+                </Tr>
+              </Tbody>
+            </Table>
+          </TableContainer>
         )}
       </CardBody>
     </Card>
   );
 };
 
-const FoodHabitsTab = ({ patient, canEdit }) => {
-  const { updatePatient } = useAppContext();
-  const toast = useToast();
-  const { isOpen, onOpen, onClose } = useDisclosure();
-  const [formData, setFormData] = useState(patient.foodAndHabit);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+const FoodHabitsTab = ({ patient }) => {
+  const foodAndHabit = patient.foodAndHabit || {};
   
-  // Handle form field changes
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-  
-  // Save changes
-  const handleSave = async () => {
-    try {
-      setIsSubmitting(true);
-      // Update patient with new food and habit data
-      await updatePatient(patient.id, {
-        ...patient,
-        foodAndHabit: formData
-      });
-      
-      toast({
-        title: 'Food & habits updated',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
-      onClose();
-    } catch (error) {
-      toast({
-        title: 'Failed to update food & habits',
-        description: error.message,
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   return (
     <Card>
-      <CardHeader bg="gray.50" py="3">
-        <Flex justify="space-between" align="center">
-          <Heading size="md">Food & Habit</Heading>
-          {canEdit && (
-            <Button size="sm" leftIcon={<FiEdit />} variant="ghost" onClick={onOpen}>
-              Edit
-            </Button>
-          )}
-        </Flex>
+      <CardHeader bg="brand.50" py="3">
+        <Heading size="md">Food & Habits</Heading>
       </CardHeader>
       <CardBody>
-        <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
-          {Object.entries(patient.foodAndHabit).map(([key, value]) => (
-            <Box key={key}>
-              <Text fontWeight="medium">{key === 'foodHabit' ? 'Food Habit' : key.charAt(0).toUpperCase() + key.slice(1)}</Text>
-              <Text>{value || 'Not recorded'}</Text>
-            </Box>
-          ))}
-        </SimpleGrid>
-        
-        {/* Food & Habits Edit Modal */}
-        <Modal isOpen={isOpen} onClose={onClose}>
-          <ModalOverlay />
-          <ModalContent>
-            <ModalHeader>Edit Food & Habits</ModalHeader>
-            <ModalCloseButton />
-            <ModalBody>
-              <VStack spacing={4} align="stretch">
-                <FormControl>
-                  <FormLabel>Food Habit</FormLabel>
-                  <Select
-                    name="foodHabit"
-                    value={formData.foodHabit || ''}
-                    onChange={handleChange}
-                  >
-                    <option value="">Select food habit</option>
-                    <option value="Vegetarian">Vegetarian</option>
-                    <option value="Non-vegetarian">Non-vegetarian</option>
-                    <option value="Vegan">Vegan</option>
-                    <option value="Eggetarian">Eggetarian</option>
-                  </Select>
-                </FormControl>
-                
-                <FormControl>
-                  <FormLabel>Addictions</FormLabel>
-                  <Textarea
-                    name="addictions"
-                    value={formData.addictions || ''}
-                    onChange={handleChange}
-                    placeholder="Enter details about habits, addictions, etc."
-                    rows={4}
-                  />
-                </FormControl>
-              </VStack>
-            </ModalBody>
-            <ModalFooter>
-              <Button variant="ghost" mr={3} onClick={onClose}>
-                Cancel
-              </Button>
-              <Button 
-                colorScheme="brand" 
-                leftIcon={<FiSave />} 
-                onClick={handleSave}
-                isLoading={isSubmitting}
-              >
-                Save Changes
-              </Button>
-            </ModalFooter>
-          </ModalContent>
-        </Modal>
+        <TableContainer>
+          <Table variant="simple" size="md">
+            <Tbody>
+              <Tr>
+                <Td fontWeight="medium" width="30%">Food Habit</Td>
+                <Td>{foodAndHabit.foodHabit || 'Not specified'}</Td>
+              </Tr>
+              <Tr>
+                <Td fontWeight="medium">Addictions</Td>
+                <Td>{foodAndHabit.addictions || 'None'}</Td>
+              </Tr>
+            </Tbody>
+          </Table>
+        </TableContainer>
       </CardBody>
     </Card>
   );
 };
 
 const InvestigationsTab = ({ patient, canEdit }) => {
-  const { addInvestigation, updateInvestigation } = useAppContext();
-  const toast = useToast();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [currentInvestigation, setCurrentInvestigation] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  // Initial form values for new investigation
-  const initialValues = {
-    type: '',
-    date: new Date().toISOString().split('T')[0],
-    details: '',
-    fileUrl: '',
-    patientId: patient.id
-  };
-  
-  // Form validation schema
-  const validationSchema = Yup.object({
-    type: Yup.string().required('Investigation type is required'),
-    date: Yup.date().required('Date is required'),
-    details: Yup.string().required('Details are required'),
-  });
-  
-  // Formik for add/edit investigation
-  const formik = useFormik({
-    initialValues,
-    validationSchema,
-    enableReinitialize: true,
-    onSubmit: async (values) => {
-      try {
-        setIsSubmitting(true);
-        
-        if (currentInvestigation) {
-          // Update existing investigation
-          await updateInvestigation(
-            currentInvestigation.id, 
-            patient.id, 
-            {
-              ...values,
-              date: new Date(values.date).toISOString()
-            }
-          );
-          
-          toast({
-            title: 'Investigation updated',
-            status: 'success',
-            duration: 3000,
-            isClosable: true,
-          });
-          
-          setIsEditModalOpen(false);
-        } else {
-          // Add new investigation
-          await addInvestigation({
-            ...values,
-            date: new Date(values.date).toISOString()
-          });
-          
-          toast({
-            title: 'Investigation added',
-            status: 'success',
-            duration: 3000,
-            isClosable: true,
-          });
-          
-          setIsAddModalOpen(false);
-        }
-        
-        formik.resetForm();
-      } catch (error) {
-        toast({
-          title: currentInvestigation ? 'Failed to update investigation' : 'Failed to add investigation',
-          description: error.message,
-          status: 'error',
-          duration: 3000,
-          isClosable: true,
-        });
-      } finally {
-        setIsSubmitting(false);
-      }
-    }
-  });
-  
-  // Open view modal
-  const handleViewInvestigation = (investigation) => {
-    setCurrentInvestigation(investigation);
-    setIsViewModalOpen(true);
-  };
-  
-  // Open edit modal
-  const handleEditInvestigation = (investigation) => {
-    setCurrentInvestigation(investigation);
-    formik.setValues({
-      type: investigation.type,
-      date: new Date(investigation.date).toISOString().split('T')[0],
-      details: investigation.details,
-      fileUrl: investigation.fileUrl || '',
-      patientId: patient.id
-    });
-    setIsEditModalOpen(true);
-  };
-  
-  // Format date for display
-  const formatDate = (dateString) => {
-    try {
-      const date = new Date(dateString);
-      return new Intl.DateTimeFormat('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-      }).format(date);
-    } catch (error) {
-      return dateString || 'N/A';
-    }
-  };
-  
-  // Handle modal close actions
-  const closeAddModal = () => {
-    setIsAddModalOpen(false);
-    formik.resetForm();
-  };
-  
-  const closeEditModal = () => {
-    setIsEditModalOpen(false);
-    setCurrentInvestigation(null);
-  };
-  
-  const closeViewModal = () => {
-    setIsViewModalOpen(false);
-    setCurrentInvestigation(null);
-  };
-  
-  // Open add modal
-  const openAddModal = () => {
-    formik.setValues(initialValues);
-    setIsAddModalOpen(true);
-  };
-  
-  return (
-    <Card>
-      <CardHeader bg="gray.50" py="3">
-        <Flex justify="space-between" align="center">
-          <Heading size="md">Investigations</Heading>
-          {canEdit && (
-            <Button 
-              size="sm" 
-              leftIcon={<FiPlusCircle />} 
-              colorScheme="brand"
-              onClick={openAddModal}
-            >
-              Add Investigation
-            </Button>
-          )}
-        </Flex>
-      </CardHeader>
-      <CardBody p={0}>
-        <TableContainer>
-          <Table variant="simple">
-            <Thead bg="gray.50">
-              <Tr>
-                <Th>Date</Th>
-                <Th>Type</Th>
-                <Th>Details</Th>
-                <Th>Actions</Th>
-              </Tr>
-            </Thead>
-            <Tbody>
-              {patient.investigations && patient.investigations.length > 0 ? (
-                patient.investigations.map(investigation => (
-                  <Tr key={investigation.id}>
-                    <Td>{formatDate(investigation.date)}</Td>
-                    <Td>{investigation.type}</Td>
-                    <Td>{investigation.details.length > 50 ? 
-                         investigation.details.substring(0, 50) + '...' : 
-                         investigation.details}</Td>
-                    <Td>
-                      <HStack spacing={2}>
-                        <Button 
-                          size="sm" 
-                          variant="ghost" 
-                          colorScheme="blue"
-                          onClick={() => handleViewInvestigation(investigation)}
-                        >
-                          View
-                        </Button>
-                        {canEdit && (
-                          <Button 
-                            size="sm" 
-                            variant="ghost" 
-                            colorScheme="brand"
-                            onClick={() => handleEditInvestigation(investigation)}
-                          >
-                            Edit
-                          </Button>
-                        )}
-                      </HStack>
-                    </Td>
-                  </Tr>
-                ))
-              ) : (
-                <Tr>
-                  <Td colSpan={4} textAlign="center" py={4}>
-                    No investigations recorded
-                  </Td>
-                </Tr>
-              )}
-            </Tbody>
-          </Table>
-        </TableContainer>
-        
-        {/* Add Investigation Modal */}
-        <Modal isOpen={isAddModalOpen} onClose={closeAddModal} size="xl">
-          <ModalOverlay />
-          <ModalContent>
-            <ModalHeader>Add New Investigation</ModalHeader>
-            <ModalCloseButton />
-            <ModalBody>
-              <VStack spacing={4} align="stretch">
-                <FormControl isRequired isInvalid={formik.touched.type && formik.errors.type}>
-                  <FormLabel>Investigation Type</FormLabel>
-                  <Input
-                    name="type"
-                    value={formik.values.type}
-                    onChange={formik.handleChange}
-                    onBlur={formik.handleBlur}
-                    placeholder="e.g., Blood Test, X-ray, MRI"
-                  />
-                  <FormErrorMessage>{formik.errors.type}</FormErrorMessage>
-                </FormControl>
-                
-                <FormControl isRequired isInvalid={formik.touched.date && formik.errors.date}>
-                  <FormLabel>Date</FormLabel>
-                  <Input
-                    name="date"
-                    type="date"
-                    value={formik.values.date}
-                    onChange={formik.handleChange}
-                    onBlur={formik.handleBlur}
-                  />
-                  <FormErrorMessage>{formik.errors.date}</FormErrorMessage>
-                </FormControl>
-                
-                <FormControl isRequired isInvalid={formik.touched.details && formik.errors.details}>
-                  <FormLabel>Details</FormLabel>
-                  <Textarea
-                    name="details"
-                    value={formik.values.details}
-                    onChange={formik.handleChange}
-                    onBlur={formik.handleBlur}
-                    placeholder="Investigation details, results, etc."
-                    rows={5}
-                  />
-                  <FormErrorMessage>{formik.errors.details}</FormErrorMessage>
-                </FormControl>
-                
-                <FormControl>
-                  <FormLabel>File URL (optional)</FormLabel>
-                  <Input
-                    name="fileUrl"
-                    value={formik.values.fileUrl}
-                    onChange={formik.handleChange}
-                    placeholder="Link to investigation file"
-                  />
-                  <FormErrorMessage>{formik.errors.fileUrl}</FormErrorMessage>
-                </FormControl>
-              </VStack>
-            </ModalBody>
-            <ModalFooter>
-              <Button variant="ghost" mr={3} onClick={closeAddModal}>
-                Cancel
-              </Button>
-              <Button 
-                colorScheme="brand" 
-                isLoading={isSubmitting}
-                onClick={formik.handleSubmit}
-              >
-                Save Investigation
-              </Button>
-            </ModalFooter>
-          </ModalContent>
-        </Modal>
-        
-        {/* Edit Investigation Modal */}
-        <Modal isOpen={isEditModalOpen} onClose={closeEditModal} size="xl">
-          <ModalOverlay />
-          <ModalContent>
-            <ModalHeader>Edit Investigation</ModalHeader>
-            <ModalCloseButton />
-            <ModalBody>
-              <VStack spacing={4} align="stretch">
-                <FormControl isRequired isInvalid={formik.touched.type && formik.errors.type}>
-                  <FormLabel>Investigation Type</FormLabel>
-                  <Input
-                    name="type"
-                    value={formik.values.type}
-                    onChange={formik.handleChange}
-                    onBlur={formik.handleBlur}
-                  />
-                  <FormErrorMessage>{formik.errors.type}</FormErrorMessage>
-                </FormControl>
-                
-                <FormControl isRequired isInvalid={formik.touched.date && formik.errors.date}>
-                  <FormLabel>Date</FormLabel>
-                  <Input
-                    name="date"
-                    type="date"
-                    value={formik.values.date}
-                    onChange={formik.handleChange}
-                    onBlur={formik.handleBlur}
-                  />
-                  <FormErrorMessage>{formik.errors.date}</FormErrorMessage>
-                </FormControl>
-                
-                <FormControl isRequired isInvalid={formik.touched.details && formik.errors.details}>
-                  <FormLabel>Details</FormLabel>
-                  <Textarea
-                    name="details"
-                    value={formik.values.details}
-                    onChange={formik.handleChange}
-                    onBlur={formik.handleBlur}
-                    rows={5}
-                  />
-                  <FormErrorMessage>{formik.errors.details}</FormErrorMessage>
-                </FormControl>
-                
-                <FormControl>
-                  <FormLabel>File URL (optional)</FormLabel>
-                  <Input
-                    name="fileUrl"
-                    value={formik.values.fileUrl || ''}
-                    onChange={formik.handleChange}
-                  />
-                </FormControl>
-              </VStack>
-            </ModalBody>
-            <ModalFooter>
-              <Button variant="ghost" mr={3} onClick={closeEditModal}>
-                Cancel
-              </Button>
-              <Button 
-                colorScheme="brand" 
-                isLoading={isSubmitting}
-                onClick={formik.handleSubmit}
-              >
-                Update Investigation
-              </Button>
-            </ModalFooter>
-          </ModalContent>
-        </Modal>
-        
-        {/* View Investigation Modal */}
-        {currentInvestigation && (
-          <Modal isOpen={isViewModalOpen} onClose={closeViewModal} size="xl">
-            <ModalOverlay />
-            <ModalContent>
-              <ModalHeader>{currentInvestigation.type}</ModalHeader>
-              <ModalCloseButton />
-              <ModalBody>
-                <VStack spacing={4} align="stretch">
-                  <Box>
-                    <Text fontWeight="semibold">Investigation Date</Text>
-                    <Text>{formatDate(currentInvestigation.date)}</Text>
-                  </Box>
-                  
-                  <Box>
-                    <Text fontWeight="semibold">Details</Text>
-                    <Text whiteSpace="pre-wrap">{currentInvestigation.details}</Text>
-                  </Box>
-                  
-                  {currentInvestigation.fileUrl && (
-                    <Box>
-                      <Text fontWeight="semibold">Attached File</Text>
-                      <Button 
-                        as="a" 
-                        href={currentInvestigation.fileUrl} 
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        colorScheme="blue" 
-                        size="sm"
-                        leftIcon={<FiFileText />}
-                      >
-                        View File
-                      </Button>
-                    </Box>
-                  )}
-                </VStack>
-              </ModalBody>
-              <ModalFooter>
-                <Button variant="ghost" onClick={closeViewModal}>
-                  Close
-                </Button>
-                {canEdit && (
-                  <Button 
-                    ml={3} 
-                    colorScheme="brand" 
-                    leftIcon={<FiEdit />}
-                    onClick={() => {
-                      closeViewModal();
-                      handleEditInvestigation(currentInvestigation);
-                    }}
-                  >
-                    Edit
-                  </Button>
-                )}
-              </ModalFooter>
-            </ModalContent>
-          </Modal>
-        )}
-      </CardBody>
-    </Card>
-  );
-};
-
-const TreatmentTab = ({ patient, doctors, canEdit }) => {
-  const { addTreatment, updateTreatment } = useAppContext();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [filter, setFilter] = useState('all'); // Filter for investigation types: 'all', 'blood', 'xray', etc.
+  const [sortOrder, setSortOrder] = useState('desc'); // Sort order: 'asc' or 'desc'
   const toast = useToast();
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [currentTreatment, setCurrentTreatment] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { investigationsAPI } = useAppContext();
+  const [investigations, setInvestigations] = useState([]);
   
-  // Initial form values for new treatment
-  const initialValues = {
-    date: new Date().toISOString().split('T')[0],
-    doctor: '',
-    observations: '',
-    medications: '',
-    patientId: patient.id
-  };
-  
-  // Form validation schema
-  const validationSchema = Yup.object({
-    date: Yup.date().required('Date is required'),
-    doctor: Yup.string().required('Doctor name is required'),
-    observations: Yup.string().required('Observations are required'),
-    medications: Yup.string().required('Medications are required'),
-  });
-  
-  // Formik for add/edit treatment
-  const formik = useFormik({
-    initialValues,
-    validationSchema,
-    enableReinitialize: true,
-    onSubmit: async (values) => {
-      try {
-        setIsSubmitting(true);
-        
-        if (currentTreatment) {
-          // Update existing treatment
-          await updateTreatment(
-            currentTreatment.id, 
-            patient.id, 
-            {
-              ...values,
-              date: new Date(values.date).toISOString()
-            }
-          );
-          
-          toast({
-            title: 'Treatment updated',
-            status: 'success',
-            duration: 3000,
-            isClosable: true,
-          });
-          
-          setIsEditModalOpen(false);
-        } else {
-          // Add new treatment
-          await addTreatment({
-            ...values,
-            date: new Date(values.date).toISOString()
-          });
-          
-          toast({
-            title: 'Treatment added',
-            status: 'success',
-            duration: 3000,
-            isClosable: true,
-          });
-          
-          setIsAddModalOpen(false);
-        }
-        
-        formik.resetForm();
-      } catch (error) {
-        toast({
-          title: currentTreatment ? 'Failed to update treatment' : 'Failed to add treatment',
-          description: error.message,
-          status: 'error',
-          duration: 3000,
-          isClosable: true,
-        });
-      } finally {
-        setIsSubmitting(false);
+  // Fetch investigations when component mounts or patient changes
+  useEffect(() => {
+    if (patient && patient.id) {
+      // Initialize investigations array if not present
+      if (!patient.investigations) {
+        patient.investigations = [];
       }
+      
+      // Fetch investigations from the server
+      fetchInvestigations();
     }
-  });
+  }, [patient]);
   
-  // Open view modal
-  const handleViewTreatment = (treatment) => {
-    setCurrentTreatment(treatment);
-    setIsViewModalOpen(true);
-  };
-  
-  // Open edit modal
-  const handleEditTreatment = (treatment) => {
-    setCurrentTreatment(treatment);
-    formik.setValues({
-      date: new Date(treatment.date).toISOString().split('T')[0],
-      doctor: treatment.doctor,
-      observations: treatment.observations,
-      medications: treatment.medications,
-      patientId: patient.id
-    });
-    setIsEditModalOpen(true);
-  };
-  
-  // Format date for display
-  const formatDate = (dateString) => {
-    try {
-      const date = new Date(dateString);
-      return new Intl.DateTimeFormat('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-      }).format(date);
-    } catch (error) {
-      return dateString || 'N/A';
-    }
-  };
-  
-  // Handle modal close actions
-  const closeAddModal = () => {
-    setIsAddModalOpen(false);
-    formik.resetForm();
-  };
-  
-  const closeEditModal = () => {
-    setIsEditModalOpen(false);
-    setCurrentTreatment(null);
-  };
-  
-  const closeViewModal = () => {
-    setIsViewModalOpen(false);
-    setCurrentTreatment(null);
-  };
-  
-  // Open add modal
-  const openAddModal = () => {
-    formik.setValues(initialValues);
-    setIsAddModalOpen(true);
-  };
-  
-  return (
-    <Card>
-      <CardHeader bg="gray.50" py="3">
-        <Flex justify="space-between" align="center">
-          <Heading size="md">Treatment Details</Heading>
-          {canEdit && (
-            <Button 
-              size="sm" 
-              leftIcon={<FiPlusCircle />} 
-              colorScheme="brand"
-              onClick={openAddModal}
-            >
-              Add Treatment
-            </Button>
-          )}
-        </Flex>
-      </CardHeader>
-      <CardBody p={0}>
-        <TableContainer>
-          <Table variant="simple">
-            <Thead bg="gray.50">
-              <Tr>
-                <Th>Date</Th>
-                <Th>Doctor</Th>
-                <Th>Observations</Th>
-                <Th>Actions</Th>
-              </Tr>
-            </Thead>
-            <Tbody>
-              {patient.treatments && patient.treatments.length > 0 ? (
-                patient.treatments.map(treatment => (
-                  <Tr key={treatment.id}>
-                    <Td>{formatDate(treatment.date)}</Td>
-                    <Td>{treatment.doctor}</Td>
-                    <Td>{treatment.observations.length > 50 ? 
-                         treatment.observations.substring(0, 50) + '...' : 
-                         treatment.observations}</Td>
-                    <Td>
-                      <HStack spacing={2}>
-                        <Button 
-                          size="sm" 
-                          variant="ghost" 
-                          colorScheme="blue"
-                          onClick={() => handleViewTreatment(treatment)}
-                        >
-                          View
-                        </Button>
-                        {canEdit && (
-                          <Button 
-                            size="sm" 
-                            variant="ghost" 
-                            colorScheme="brand"
-                            onClick={() => handleEditTreatment(treatment)}
-                          >
-                            Edit
-                          </Button>
-                        )}
-                      </HStack>
-                    </Td>
-                  </Tr>
-                ))
-              ) : (
-                <Tr>
-                  <Td colSpan={4} textAlign="center" py={4}>
-                    No treatments recorded
-                  </Td>
-                </Tr>
-              )}
-            </Tbody>
-          </Table>
-        </TableContainer>
-        
-        {/* Add Treatment Modal */}
-        <Modal isOpen={isAddModalOpen} onClose={closeAddModal} size="xl">
-          <ModalOverlay />
-          <ModalContent>
-            <ModalHeader>Add New Treatment</ModalHeader>
-            <ModalCloseButton />
-            <ModalBody>
-              <VStack spacing={4} align="stretch">
-                <FormControl isRequired isInvalid={formik.touched.date && formik.errors.date}>
-                  <FormLabel>Treatment Date</FormLabel>
-                  <Input
-                    name="date"
-                    type="date"
-                    value={formik.values.date}
-                    onChange={formik.handleChange}
-                    onBlur={formik.handleBlur}
-                  />
-                  <FormErrorMessage>{formik.errors.date}</FormErrorMessage>
-                </FormControl>
-                
-                <FormControl isRequired isInvalid={formik.touched.doctor && formik.errors.doctor}>
-                  <FormLabel>Doctor</FormLabel>
-                  <Select
-                    name="doctor"
-                    placeholder="Select doctor"
-                    value={formik.values.doctor}
-                    onChange={formik.handleChange}
-                    onBlur={formik.handleBlur}
-                  >
-                    {doctors.map((doctor) => (
-                      <option key={doctor.id} value={doctor.name}>
-                        {doctor.name} ({doctor.specialty})
-                      </option>
-                    ))}
-                  </Select>
-                  <FormErrorMessage>{formik.errors.doctor}</FormErrorMessage>
-                </FormControl>
-                
-                <FormControl isRequired isInvalid={formik.touched.observations && formik.errors.observations}>
-                  <FormLabel>Observations</FormLabel>
-                  <Textarea
-                    name="observations"
-                    value={formik.values.observations}
-                    onChange={formik.handleChange}
-                    onBlur={formik.handleBlur}
-                    placeholder="Clinical observations, symptoms, etc."
-                    rows={5}
-                  />
-                  <FormErrorMessage>{formik.errors.observations}</FormErrorMessage>
-                </FormControl>
-                
-                <FormControl isRequired isInvalid={formik.touched.medications && formik.errors.medications}>
-                  <FormLabel>Medications & Treatment Plan</FormLabel>
-                  <Textarea
-                    name="medications"
-                    value={formik.values.medications}
-                    onChange={formik.handleChange}
-                    onBlur={formik.handleBlur}
-                    placeholder="Prescribed medications, dosage, and treatment plan"
-                    rows={5}
-                  />
-                  <FormErrorMessage>{formik.errors.medications}</FormErrorMessage>
-                </FormControl>
-              </VStack>
-            </ModalBody>
-            <ModalFooter>
-              <Button variant="ghost" mr={3} onClick={closeAddModal}>
-                Cancel
-              </Button>
-              <Button 
-                colorScheme="brand" 
-                isLoading={isSubmitting}
-                onClick={formik.handleSubmit}
-              >
-                Save Treatment
-              </Button>
-            </ModalFooter>
-          </ModalContent>
-        </Modal>
-        
-        {/* Edit Treatment Modal */}
-        <Modal isOpen={isEditModalOpen} onClose={closeEditModal} size="xl">
-          <ModalOverlay />
-          <ModalContent>
-            <ModalHeader>Edit Treatment</ModalHeader>
-            <ModalCloseButton />
-            <ModalBody>
-              <VStack spacing={4} align="stretch">
-                <FormControl isRequired isInvalid={formik.touched.date && formik.errors.date}>
-                  <FormLabel>Treatment Date</FormLabel>
-                  <Input
-                    name="date"
-                    type="date"
-                    value={formik.values.date}
-                    onChange={formik.handleChange}
-                    onBlur={formik.handleBlur}
-                  />
-                  <FormErrorMessage>{formik.errors.date}</FormErrorMessage>
-                </FormControl>
-                
-                <FormControl isRequired isInvalid={formik.touched.doctor && formik.errors.doctor}>
-                  <FormLabel>Doctor</FormLabel>
-                  <Select
-                    name="doctor"
-                    placeholder="Select doctor"
-                    value={formik.values.doctor}
-                    onChange={formik.handleChange}
-                    onBlur={formik.handleBlur}
-                  >
-                    {doctors.map((doctor) => (
-                      <option key={doctor.id} value={doctor.name}>
-                        {doctor.name} ({doctor.specialty})
-                      </option>
-                    ))}
-                  </Select>
-                  <FormErrorMessage>{formik.errors.doctor}</FormErrorMessage>
-                </FormControl>
-                
-                <FormControl isRequired isInvalid={formik.touched.observations && formik.errors.observations}>
-                  <FormLabel>Observations</FormLabel>
-                  <Textarea
-                    name="observations"
-                    value={formik.values.observations}
-                    onChange={formik.handleChange}
-                    onBlur={formik.handleBlur}
-                    rows={5}
-                  />
-                  <FormErrorMessage>{formik.errors.observations}</FormErrorMessage>
-                </FormControl>
-                
-                <FormControl isRequired isInvalid={formik.touched.medications && formik.errors.medications}>
-                  <FormLabel>Medications & Treatment Plan</FormLabel>
-                  <Textarea
-                    name="medications"
-                    value={formik.values.medications}
-                    onChange={formik.handleChange}
-                    onBlur={formik.handleBlur}
-                    rows={5}
-                  />
-                  <FormErrorMessage>{formik.errors.medications}</FormErrorMessage>
-                </FormControl>
-              </VStack>
-            </ModalBody>
-            <ModalFooter>
-              <Button variant="ghost" mr={3} onClick={closeEditModal}>
-                Cancel
-              </Button>
-              <Button 
-                colorScheme="brand" 
-                isLoading={isSubmitting}
-                onClick={formik.handleSubmit}
-              >
-                Update Treatment
-              </Button>
-            </ModalFooter>
-          </ModalContent>
-        </Modal>
-        
-        {/* View Treatment Modal */}
-        {currentTreatment && (
-          <Modal isOpen={isViewModalOpen} onClose={closeViewModal} size="xl">
-            <ModalOverlay />
-            <ModalContent>
-              <ModalHeader>Treatment Details</ModalHeader>
-              <ModalCloseButton />
-              <ModalBody>
-                <VStack spacing={4} align="stretch">
-                  <Box>
-                    <Text fontWeight="semibold">Treatment Date</Text>
-                    <Text>{formatDate(currentTreatment.date)}</Text>
-                  </Box>
-                  
-                  <Box>
-                    <Text fontWeight="semibold">Doctor</Text>
-                    <Text>{currentTreatment.doctor}</Text>
-                  </Box>
-                  
-                  <Box>
-                    <Text fontWeight="semibold">Observations</Text>
-                    <Text whiteSpace="pre-wrap">{currentTreatment.observations}</Text>
-                  </Box>
-                  
-                  <Box>
-                    <Text fontWeight="semibold">Medications & Treatment Plan</Text>
-                    <Text whiteSpace="pre-wrap">{currentTreatment.medications}</Text>
-                  </Box>
-                </VStack>
-              </ModalBody>
-              <ModalFooter>
-                <Button variant="ghost" onClick={closeViewModal}>
-                  Close
-                </Button>
-                {canEdit && (
-                  <Button 
-                    ml={3} 
-                    colorScheme="brand" 
-                    leftIcon={<FiEdit />}
-                    onClick={() => {
-                      closeViewModal();
-                      handleEditTreatment(currentTreatment);
-                    }}
-                  >
-                    Edit
-                  </Button>
-                )}
-              </ModalFooter>
-            </ModalContent>
-          </Modal>
-        )}
-      </CardBody>
-    </Card>
-  );
-};
+  // Set up a refresh interval for investigations
+  useEffect(() => {
+    // Refresh investigations every 30 seconds
+    const intervalId = setInterval(() => {
+      if (patient && patient.id) {
+        console.log('Auto-refreshing investigations for patient ID:', patient.id);
+        fetchInvestigations();
+      }
+    }, 30000);
+    
+    // Clean up interval on component unmount
+    return () => clearInterval(intervalId);
+  }, [patient]);
 
-const BillingTab = ({ patient }) => {
-  const { isOpen: isViewModalOpen, onOpen: onOpenViewModal, onClose: onCloseViewModal } = useDisclosure();
-  const { isOpen: isEditModalOpen, onOpen: onOpenEditModal, onClose: onCloseEditModal } = useDisclosure();
-  const [selectedInvoice, setSelectedInvoice] = useState(null);
-  const { updateInvoice, isLoading } = useAppContext();
-  const toast = useToast();
-  const [paymentFormErrors, setPaymentFormErrors] = useState({});
-  
-  const handleViewInvoice = (invoice) => {
-    setSelectedInvoice(invoice);
-    onOpenViewModal();
-  };
-  
-  const handleEditInvoice = (invoice) => {
-    setSelectedInvoice(invoice);
-    setPaymentFormErrors({});
-    onOpenEditModal();
-  };
-  
-  // Format date for display
-  const formatDate = (dateString) => {
+  // Fetch investigations for the patient
+  const fetchInvestigations = async () => {
     try {
-      if (!dateString) return "N/A";
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return dateString; 
+      setIsLoading(true);
+      setError(null);
+      console.log('Fetching investigations for patient ID:', patient.id);
       
-      return new Intl.DateTimeFormat('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-      }).format(date);
+      // Make sure we have a valid patient ID
+      if (!patient.id) {
+        throw new Error('Invalid patient ID');
+      }
+      
+      // Use the patient-specific endpoint with direct API call
+      const response = await fetch(`/api/investigations?patientId=${patient.id}`);
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log('Investigations fetched:', data);
+      
+      // Handle potential null or undefined data
+      if (Array.isArray(data)) {
+        setInvestigations(data);
+      } else if (data && data.investigations && Array.isArray(data.investigations)) {
+        setInvestigations(data.investigations);
+      } else {
+        console.warn('Invalid investigations data format:', data);
+        setInvestigations([]);
+      }
     } catch (error) {
-      return dateString || "N/A";
-    }
-  };
-  
-  // Format currency
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-    }).format(amount || 0);
-  };
-  
-  // Sort invoices by date (newest first)
-  const sortedInvoices = [...(patient.invoices || [])].sort((a, b) => {
-    return new Date(b.date) - new Date(a.date);
-  });
-  
-  // Validate payment form
-  const validatePaymentForm = (formData) => {
-    const errors = {};
-    const status = formData.get('paymentStatus');
-    const mode = formData.get('paymentMode');
-    const amountPaid = parseFloat(formData.get('amountPaid'));
-    
-    if (status === 'Paid' && amountPaid < selectedInvoice.total) {
-      errors.amountPaid = "Amount paid must equal or exceed total amount for Paid status";
-    }
-    
-    if (status === 'Partial' && (!amountPaid || amountPaid <= 0 || amountPaid >= selectedInvoice.total)) {
-      errors.amountPaid = "For partial payment, amount must be greater than 0 and less than total";
-    }
-    
-    if ((status === 'Paid' || status === 'Partial') && !mode) {
-      errors.paymentMode = "Payment mode is required";
-    }
-    
-    setPaymentFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-  
-  // Handle payment update
-  const handlePaymentUpdate = async (e) => {
-    e.preventDefault();
-    const formData = new FormData(e.target);
-    const status = formData.get('paymentStatus');
-    const mode = formData.get('paymentMode');
-    const transactionId = formData.get('transactionId');
-    const amountPaid = parseFloat(formData.get('amountPaid'));
-    
-    // Validate form
-    if (!validatePaymentForm(formData)) {
-      return;
-    }
-    
-    try {
-      // Update invoice
-      await updateInvoice(patient.id, selectedInvoice.id, {
-        paymentStatus: status,
-        paymentMode: mode,
-        transactionId,
-        amountPaid,
-      });
-      
+      console.error('Error fetching investigations:', error);
+      setError(error.message || 'Failed to load investigation data');
       toast({
-        title: 'Invoice Updated',
-        description: `Payment status updated to ${status}`,
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
-      
-      onCloseEditModal();
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: error.message || "Failed to update payment status",
-        status: 'error',
+        title: "Error fetching investigations",
+        description: error.message || 'Failed to load investigation data',
+        status: "error",
         duration: 5000,
         isClosable: true,
       });
+    } finally {
+      setIsLoading(false);
     }
   };
+
+  // Get doctor names for filtering
+  const doctorNames = useMemo(() => {
+    const names = investigations.map(inv => inv.doctor).filter(Boolean);
+    return ['all', ...new Set(names)];
+  }, [investigations]);
+  
+  // Filter and sort investigations based on current settings
+  const filteredInvestigations = useMemo(() => {
+    let filtered = [...investigations];
+    
+    // Apply doctor filter
+    if (filter !== 'all') {
+      filtered = filtered.filter(inv => inv.doctor === filter);
+    }
+    
+    // Apply sorting
+    filtered.sort((a, b) => {
+      const dateA = new Date(a.date);
+      const dateB = new Date(b.date);
+      return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+    });
+    
+    return filtered;
+  }, [investigations, filter, sortOrder]);
+
+  // Delete an investigation
+  const handleDeleteInvestigation = async (id) => {
+    if (window.confirm('Are you sure you want to delete this investigation?')) {
+      try {
+        console.log('Deleting investigation with ID:', id);
+        await investigationsAPI.deleteInvestigation(id);
+        setInvestigations(investigations.filter(inv => inv.id !== id));
+        toast({
+          title: "Investigation deleted",
+          description: "The investigation has been successfully deleted.",
+          status: "success",
+          duration: 3000,
+          isClosable: true,
+        });
+      } catch (error) {
+        console.error('Error deleting investigation:', error);
+        toast({
+          title: "Error deleting investigation",
+          description: error.message || "Could not delete investigation",
+          status: "error",
+          duration: 5000,
+          isClosable: true,
+        });
+      }
+    }
+  };
+
+  // Edit an investigation
+  const handleEditInvestigation = (investigation) => {
+    setCurrentInvestigation(investigation);
+    setIsEditModalOpen(true);
+  };
+
+  // Handle a new or updated investigation
+  const handleInvestigationSaved = (investigation) => {
+    if (currentInvestigation) {
+      // Update existing investigation in the list
+      setInvestigations(prev => 
+        prev.map(inv => inv.id === investigation.id ? investigation : inv)
+      );
+    } else {
+      // Add new investigation to the list
+      setInvestigations(prev => [...prev, investigation]);
+    }
+    
+    // Make sure to properly close all modals
+    setIsAddModalOpen(false);
+    setIsEditModalOpen(false);
+    setCurrentInvestigation(null);
+    
+    // Refresh the investigations list from the server to ensure we have the latest data
+    fetchInvestigations();
+  };
+
+  // Get count of investigations by doctor
+  const investigationSummary = useMemo(() => {
+    const summary = {};
+    investigations.forEach(inv => {
+      if (inv.doctor) {
+        summary[inv.doctor] = (summary[inv.doctor] || 0) + 1;
+      } else {
+        summary['Unspecified'] = (summary['Unspecified'] || 0) + 1;
+      }
+    });
+    return summary;
+  }, [investigations]);
   
   return (
     <>
       <Card>
-        <CardHeader bg="gray.50" py="3">
+        <CardHeader bgGradient="linear(to-r, brand.100, brand.200)" py="4" borderTopRadius="lg">
           <Flex justify="space-between" align="center">
-            <Heading size="md">Invoices</Heading>
-            <Button 
-              as={RouterLink}
-              to={`/billing/new/${patient.id}`}
-              size="sm" 
-              leftIcon={<FiPlusCircle />} 
-              colorScheme="brand"
-            >
-              Create Invoice
-            </Button>
+            <Heading size="md" color="gray.700">Investigations & Reports</Heading>
+            {canEdit && (
+              <Button 
+                size="sm" 
+                bg="brand.100"
+                color="gray.700"
+                _hover={{ bg: "brand.200" }}
+                leftIcon={<FiPlusCircle />}
+                onClick={() => setIsAddModalOpen(true)}
+                boxShadow="sm"
+              >
+                Add Investigation
+              </Button>
+            )}
           </Flex>
         </CardHeader>
-        <CardBody p={0}>
-          <TableContainer>
-            <Table variant="simple">
-              <Thead bg="gray.50">
-                <Tr>
-                  <Th>Invoice ID</Th>
-                  <Th>Date</Th>
-                  <Th isNumeric>Amount</Th>
-                  <Th>Status</Th>
-                  <Th>Action</Th>
-                </Tr>
-              </Thead>
-              <Tbody>
-                {sortedInvoices.length > 0 ? (
-                  sortedInvoices.map(invoice => (
-                    <Tr key={invoice.id}>
-                      <Td fontFamily="mono">{invoice.id}</Td>
-                      <Td>{formatDate(invoice.date)}</Td>
-                      <Td isNumeric>{formatCurrency(invoice.total)}</Td>
-                      <Td>
-                        <Badge colorScheme={
-                          invoice.paymentStatus === 'Paid' ? 'green' : 
-                          invoice.paymentStatus === 'Partial' ? 'yellow' : 'red'
-                        }>
-                          {invoice.paymentStatus}
-                        </Badge>
+        <CardBody>
+          {/* Summary of patient investigations */}
+          {investigations.length > 0 && (
+            <Box mb={6} p={5} borderRadius="lg" bg="white" boxShadow="sm" borderLeft="4px" borderColor="brand.300">
+              <Heading size="sm" mb={4} color="brand.600" fontWeight="600">Investigation Summary</Heading>
+              <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+                <Box bg="brand.50" p={3} borderRadius="md">
+                  <Text fontWeight="bold" fontSize="sm" color="gray.600">Total Investigations</Text>
+                  <Text fontSize="2xl" color="brand.600">{investigations.length}</Text>
+                </Box>
+                <Box bg="brand.50" p={3} borderRadius="md">
+                  <Text fontWeight="bold" fontSize="sm" color="gray.600">Latest Investigation</Text>
+                  <Text fontWeight="medium">{investigations.length > 0 ? 
+                    `By ${investigations[0].doctor || 'Unspecified'} (${formatDate(investigations[0].date)})` : 
+                    'None'}
+                  </Text>
+                </Box>
+                <Box bg="brand.50" p={3} borderRadius="md">
+                  <Text fontWeight="bold" fontSize="sm" color="gray.600">Doctors</Text>
+                  <HStack flexWrap="wrap" spacing={2} mt={1}>
+                    {Object.entries(investigationSummary).map(([doctor, count]) => (
+                      <Badge key={doctor} bg="brand.200" color="gray.700" py={1} px={2} borderRadius="md">
+                        {doctor}: {count}
+                      </Badge>
+                    ))}
+                  </HStack>
+                </Box>
+              </SimpleGrid>
+            </Box>
+          )}
+
+          {/* Filters and controls */}
+          {investigations.length > 0 && (
+            <Flex mb={5} justify="space-between" align="center" flexWrap="wrap" gap={3} bg="brand.50" p={4} borderRadius="md" boxShadow="sm">
+              <HStack spacing={3}>
+                <Text fontWeight="medium" color="gray.600">Filter by Doctor:</Text>
+                <Select 
+                  size="sm" 
+                  width="180px" 
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value)}
+                  bg="white"
+                  borderColor="brand.200"
+                  _hover={{ borderColor: "brand.300" }}
+                  boxShadow="sm"
+                >
+                  {doctorNames.map(doctor => (
+                    <option key={doctor} value={doctor}>
+                      {doctor === 'all' ? 'All Doctors' : doctor}
+                    </option>
+                  ))}
+                </Select>
+              </HStack>
+              
+              <HStack spacing={3}>
+                <Text fontWeight="medium" color="gray.600">Sort:</Text>
+                <Select 
+                  size="sm" 
+                  width="150px"
+                  value={sortOrder}
+                  onChange={(e) => setSortOrder(e.target.value)}
+                  bg="white"
+                  borderColor="brand.200"
+                  _hover={{ borderColor: "brand.300" }}
+                  boxShadow="sm"
+                >
+                  <option value="desc">Newest First</option>
+                  <option value="asc">Oldest First</option>
+                </Select>
+              </HStack>
+            </Flex>
+          )}
+
+          {isLoading ? (
+            <Flex justify="center" align="center" py="6">
+              <Text>Loading investigations...</Text>
+            </Flex>
+          ) : error ? (
+            <Box textAlign="center" py="6" color="red.500">
+              <Text fontWeight="medium">Error: {error}</Text>
+              <Button 
+                mt={4} 
+                size="sm" 
+                onClick={fetchInvestigations} 
+                colorScheme="brand"
+              >
+                Try Again
+              </Button>
+            </Box>
+          ) : filteredInvestigations.length === 0 ? (
+            <Box textAlign="center" py="8" px="4" bg="brand.50" borderRadius="lg" borderWidth="1px" borderColor="brand.100">
+              <Icon as={FiFileText} boxSize="10" color="brand.300" mb={3} />
+              <Text fontWeight="medium" color="gray.700" fontSize="lg">
+                {investigations.length > 0 ? 
+                  'No investigations match the current filter.' : 
+                  'No investigation reports added yet.'}
+              </Text>
+              {canEdit && investigations.length === 0 && (
+                <Button 
+                  mt={4}
+                  size="sm" 
+                  bg="brand.100"
+                  color="gray.700"
+                  _hover={{ bg: "brand.200" }}
+                  leftIcon={<FiPlusCircle />}
+                  onClick={() => setIsAddModalOpen(true)}
+                >
+                  Add First Investigation
+                </Button>
+              )}
+            </Box>
+          ) : (
+            <TableContainer borderRadius="lg" overflow="hidden" boxShadow="sm">
+              <Table variant="simple" bg="white">
+                <Thead bg="brand.50">
+                  <Tr>
+                    <Th borderColor="brand.200" color="gray.600">Date</Th>
+                    <Th borderColor="brand.200" color="gray.600">Doctor</Th>
+                    <Th borderColor="brand.200" color="gray.600">Details</Th>
+                    <Th borderColor="brand.200" color="gray.600" textAlign="center">Actions</Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {filteredInvestigations.map((investigation, index) => (
+                    <Tr key={investigation.id} bg={index % 2 === 0 ? 'white' : 'brand.50'} _hover={{ bg: 'brand.100' }}>
+                      <Td borderColor="gray.100">{formatDate(investigation.date)}</Td>
+                      <Td borderColor="gray.100">
+                        {investigation.doctor || <Text color="gray.400" as="i">Not specified</Text>}
                       </Td>
-                      <Td>
-                        <HStack spacing={2}>
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => handleViewInvoice(invoice)}
-                          >
-                            View
-                          </Button>
-                          {invoice.paymentStatus !== 'Paid' && (
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              colorScheme="blue"
-                              as={RouterLink}
-                              to={`/billing/edit/${patient.id}/${invoice.id}`}
-                            >
-                              Edit
-                            </Button>
+                      <Td borderColor="gray.100" fontWeight="medium">{investigation.details}</Td>
+                      <Td borderColor="gray.100" textAlign="center">
+                        <HStack spacing="2" justifyContent="center">
+                          {investigation.fileUrl && (
+                            <IconButton
+                              aria-label="View file"
+                              icon={<FiFileText />}
+                              size="sm"
+                              bg="brand.100"
+                              color="gray.700"
+                              _hover={{ bg: "brand.200" }}
+                              as="a"
+                              href={investigation.fileUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              title="View Report Document"
+                            />
                           )}
-                          <IconButton 
-                            size="sm" 
-                            variant="ghost"
-                            colorScheme="red" 
-                            icon={<FiPrinter />} 
-                            onClick={() => {
-                              toast({
-                                title: 'Print Invoice',
-                                description: 'Printing feature will be implemented soon.',
-                                status: 'info',
-                                duration: 3000,
-                                isClosable: true
-                              });
-                            }}
-                          />
+                          {canEdit && (
+                            <>
+                              <IconButton
+                                aria-label="Edit investigation"
+                                icon={<FiEdit />}
+                                size="sm"
+                                bg="brand.100"
+                                color="gray.700"
+                                _hover={{ bg: "brand.200" }}
+                                onClick={() => handleEditInvestigation(investigation)}
+                                title="Edit Investigation"
+                              />
+                              <IconButton
+                                aria-label="Delete investigation"
+                                icon={<FiTrash2 />}
+                                size="sm"
+                                bg="brand.400"
+                                color="white"
+                                _hover={{ bg: "brand.500" }}
+                                onClick={() => handleDeleteInvestigation(investigation.id)}
+                                title="Delete Investigation"
+                              />
+                            </>
+                          )}
                         </HStack>
                       </Td>
                     </Tr>
-                  ))
-                ) : (
-                  <Tr>
-                    <Td colSpan={5} textAlign="center" py={4}>
-                      No invoices created yet
-                    </Td>
-                  </Tr>
-                )}
-              </Tbody>
-            </Table>
-          </TableContainer>
+                  ))}
+                </Tbody>
+              </Table>
+            </TableContainer>
+          )}
         </CardBody>
       </Card>
       
-      {/* Invoice View Modal */}
-      <Modal isOpen={isViewModalOpen} onClose={onCloseViewModal} size="xl">
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>
-            Invoice Details
-            <Badge ml={2} colorScheme={
-              selectedInvoice?.paymentStatus === 'Paid' ? 'green' : 
-              selectedInvoice?.paymentStatus === 'Partial' ? 'yellow' : 'red'
-            }>
-              {selectedInvoice?.paymentStatus}
-            </Badge>
-          </ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            {selectedInvoice && (
-              <VStack spacing={6} align="stretch">
-                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-                  <Box>
-                    <Text fontWeight="bold" mb={1}>Invoice ID</Text>
-                    <Text fontFamily="mono">{selectedInvoice.id}</Text>
-                  </Box>
-                  <Box>
-                    <Text fontWeight="bold" mb={1}>Date</Text>
-                    <Text>{formatDate(selectedInvoice.date)}</Text>
-                  </Box>
-                </SimpleGrid>
-
-                <Divider />
-                
-                <Box>
-                  <Text fontWeight="bold" mb={3}>Invoice Items</Text>
-                  <TableContainer>
-                    <Table size="sm" variant="simple">
-                      <Thead bg="gray.50">
-                        <Tr>
-                          <Th>Description</Th>
-                          <Th isNumeric>Amount</Th>
-                        </Tr>
-                      </Thead>
-                      <Tbody>
-                        {selectedInvoice.items && selectedInvoice.items.map((item, index) => (
-                          <Tr key={item.id || index}>
-                            <Td>{item.description}</Td>
-                            <Td isNumeric>{formatCurrency(item.amount)}</Td>
-                          </Tr>
-                        ))}
-                      </Tbody>
-                    </Table>
-                  </TableContainer>
-                </Box>
-                
-                <Divider />
-                
-                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-                  <Box>
-                    <Text fontWeight="bold" mb={1}>Payment Mode</Text>
-                    <Text>{selectedInvoice.paymentMode || 'N/A'}</Text>
-                  </Box>
-                  {selectedInvoice.transactionId && (
-                    <Box>
-                      <Text fontWeight="bold" mb={1}>Transaction ID</Text>
-                      <Text>{selectedInvoice.transactionId}</Text>
-                    </Box>
-                  )}
-                </SimpleGrid>
-                
-                <Divider />
-                
-                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-                  <Box>
-                    <Text fontWeight="bold" mb={1}>Subtotal</Text>
-                    <Text>{formatCurrency(selectedInvoice.subtotal)}</Text>
-                  </Box>
-                  {selectedInvoice.discount > 0 && (
-                    <Box>
-                      <Text fontWeight="bold" mb={1}>Discount ({selectedInvoice.discount}%)</Text>
-                      <Text color="green.500">
-                        -{formatCurrency((selectedInvoice.subtotal * selectedInvoice.discount) / 100)}
-                      </Text>
-                    </Box>
-                  )}
-                </SimpleGrid>
-                
-                {selectedInvoice.tax > 0 && (
-                  <Box>
-                    <Text fontWeight="bold" mb={1}>Tax ({selectedInvoice.tax}%)</Text>
-                    <Text>{formatCurrency((selectedInvoice.subtotal * (1 - selectedInvoice.discount / 100) * selectedInvoice.tax) / 100)}</Text>
-                  </Box>
-                )}
-                
-                <Divider />
-                
-                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-                  <Box>
-                    <Text fontWeight="bold" fontSize="lg" mb={1}>Total Amount</Text>
-                    <Text fontSize="lg">{formatCurrency(selectedInvoice.total)}</Text>
-                  </Box>
-                  
-                  {selectedInvoice.paymentStatus !== 'Unpaid' && (
-                    <Box>
-                      <Text fontWeight="bold" mb={1}>Amount Paid</Text>
-                      <Text color="green.500">{formatCurrency(selectedInvoice.amountPaid)}</Text>
-                    </Box>
-                  )}
-                  
-                  {selectedInvoice.paymentStatus === 'Partial' && (
-                    <Box>
-                      <Text fontWeight="bold" mb={1}>Balance Due</Text>
-                      <Text color="red.500">{formatCurrency(selectedInvoice.total - selectedInvoice.amountPaid)}</Text>
-                    </Box>
-                  )}
-                </SimpleGrid>
-                
-                {selectedInvoice.notes && (
-                  <>
-                    <Divider />
-                    <Box>
-                      <Text fontWeight="bold" mb={1}>Notes</Text>
-                      <Text>{selectedInvoice.notes}</Text>
-                    </Box>
-                  </>
-                )}
-                
-                {selectedInvoice.paymentHistory && selectedInvoice.paymentHistory.length > 0 && (
-                  <>
-                    <Divider />
-                    <Box>
-                      <Text fontWeight="bold" mb={3}>Payment History</Text>
-                      <TableContainer>
-                        <Table size="sm" variant="simple">
-                          <Thead bg="gray.50">
-                            <Tr>
-                              <Th>Date</Th>
-                              <Th>Amount</Th>
-                              <Th>Mode</Th>
-                              <Th>Status</Th>
-                            </Tr>
-                          </Thead>
-                          <Tbody>
-                            {selectedInvoice.paymentHistory.map((payment, index) => (
-                              <Tr key={index}>
-                                <Td>{formatDate(payment.date)}</Td>
-                                <Td>{formatCurrency(payment.amount)}</Td>
-                                <Td>{payment.mode || 'N/A'}</Td>
-                                <Td>
-                                  <Badge colorScheme={
-                                    payment.status === 'Paid' ? 'green' : 
-                                    payment.status === 'Partial' ? 'yellow' : 'red'
-                                  }>
-                                    {payment.status}
-                                  </Badge>
-                                </Td>
-                              </Tr>
-                            ))}
-                          </Tbody>
-                        </Table>
-                      </TableContainer>
-                    </Box>
-                  </>
-                )}
-              </VStack>
-            )}
-          </ModalBody>
-          <ModalFooter>
-            <Button mr={3} onClick={onCloseViewModal}>Close</Button>
-            <Button 
-              leftIcon={<FiPrinter />}
-              colorScheme="brand" 
-              onClick={() => {
-                toast({
-                  title: 'Invoice Print',
-                  description: 'Print feature will be implemented soon.',
-                  status: 'info',
-                  duration: 3000,
-                  isClosable: true,
-                });
-              }}
-            >
-              Print Invoice
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
-      
-      {/* Invoice Edit Modal - For updating payment status */}
-      <Modal isOpen={isEditModalOpen} onClose={onCloseEditModal} size="md">
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>Update Payment Status</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            {selectedInvoice && (
-              <Box as="form" id="edit-invoice-form" onSubmit={handlePaymentUpdate}>
-                <VStack spacing={4} align="stretch">
-                  <FormControl isInvalid={paymentFormErrors.paymentStatus}>
-                    <FormLabel>Payment Status</FormLabel>
-                    <Select 
-                      name="paymentStatus"
-                      defaultValue={selectedInvoice.paymentStatus}
-                    >
-                      <option value="Unpaid">Unpaid</option>
-                      <option value="Partial">Partial Payment</option>
-                      <option value="Paid">Paid</option>
-                    </Select>
-                    {paymentFormErrors.paymentStatus && <FormErrorMessage>{paymentFormErrors.paymentStatus}</FormErrorMessage>}
-                  </FormControl>
-                  
-                  <FormControl isInvalid={paymentFormErrors.paymentMode}>
-                    <FormLabel>Payment Mode</FormLabel>
-                    <Select 
-                      name="paymentMode"
-                      defaultValue={selectedInvoice.paymentMode || ''}
-                    >
-                      <option value="">Select payment mode</option>
-                      <option value="Cash">Cash</option>
-                      <option value="Credit Card">Credit Card</option>
-                      <option value="Debit Card">Debit Card</option>
-                      <option value="Bank Transfer">Bank Transfer</option>
-                      <option value="UPI">UPI</option>
-                      <option value="Other">Other</option>
-                    </Select>
-                    {paymentFormErrors.paymentMode && <FormErrorMessage>{paymentFormErrors.paymentMode}</FormErrorMessage>}
-                  </FormControl>
-                  
-                  <FormControl isInvalid={paymentFormErrors.transactionId}>
-                    <FormLabel>Transaction ID (Optional)</FormLabel>
-                    <Input 
-                      name="transactionId"
-                      defaultValue={selectedInvoice.transactionId || ''}
-                      placeholder="Enter reference number"
-                    />
-                    {paymentFormErrors.transactionId && <FormErrorMessage>{paymentFormErrors.transactionId}</FormErrorMessage>}
-                  </FormControl>
-                  
-                  <FormControl isInvalid={paymentFormErrors.amountPaid}>
-                    <FormLabel>Amount Paid</FormLabel>
-                    <Input 
-                      name="amountPaid"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max={selectedInvoice.total}
-                      defaultValue={selectedInvoice.amountPaid || 0}
-                    />
-                    {paymentFormErrors.amountPaid && <FormErrorMessage>{paymentFormErrors.amountPaid}</FormErrorMessage>}
-                    <Text fontSize="sm" color="gray.500">
-                      Total Invoice Amount: {formatCurrency(selectedInvoice.total)}
-                    </Text>
-                  </FormControl>
-                  
-                  <Box pt={2}>
-                    <Text fontWeight="bold">Balance after payment:</Text>
-                    <Text>{formatCurrency(selectedInvoice.total - (selectedInvoice.amountPaid || 0))}</Text>
-                  </Box>
-                </VStack>
-              </Box>
-            )}
-          </ModalBody>
-          <ModalFooter>
-            <Button mr={3} onClick={onCloseEditModal}>
-              Cancel
-            </Button>
-            <Button 
-              colorScheme="brand" 
-              type="submit"
-              form="edit-invoice-form"
-              isLoading={isLoading}
-            >
-              Update Payment
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+      {/* Add/Edit Investigation Modal */}
+      <InvestigationFormModal
+        isOpen={isAddModalOpen || isEditModalOpen}
+        onClose={() => {
+          // Make sure all state variables are reset
+          setIsAddModalOpen(false);
+          setIsEditModalOpen(false);
+          setCurrentInvestigation(null);
+        }}
+        patientId={patient.id}
+        investigation={currentInvestigation}
+        onSave={handleInvestigationSaved}
+      />
     </>
   );
 };
+
+
+
+const InvestigationFormModal = ({ isOpen, onClose, patientId, investigation, onSave }) => {
+  const toast = useToast();
+  const { investigationsAPI, addInvestigation } = useAppContext();
+  const isEditing = !!investigation;
+  
+  // Initialize simplified form validation schema
+  const validationSchema = Yup.object({
+    details: Yup.string().required('Details are required'),
+    date: Yup.date().required('Date is required').max(new Date(), 'Date cannot be in the future'),
+    fileUrl: Yup.string().url('Must be a valid URL').nullable(),
+    doctor: Yup.string(),
+    notes: Yup.string()
+  });
+  
+  // Initialize formik for form handling with simplified fields
+  const formik = useFormik({
+    initialValues: {
+      details: investigation?.details || '',
+      date: investigation?.date ? new Date(investigation.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      fileUrl: investigation?.fileUrl || '',
+      doctor: investigation?.doctor || '',
+      notes: investigation?.notes || ''
+    },
+    validationSchema,
+    onSubmit: async (values) => {
+      try {
+        let result;
+        
+        // Make sure the date is properly formatted
+        const formattedValues = {
+          ...values,
+          type: "General", // Set a default type since we removed the field
+          date: new Date(values.date).toISOString()
+        };
+        
+        console.log('Submitting investigation:', formattedValues);
+        
+        if (isEditing) {
+          // Update existing investigation
+          result = await investigationsAPI.updateInvestigation(investigation.id, {
+            ...formattedValues,
+            patientId,
+          });
+          toast({
+            title: "Investigation updated",
+            description: "The investigation has been successfully updated.",
+            status: "success",
+            duration: 3000,
+            isClosable: true,
+          });
+        } else {
+          // Create new investigation - directly use the API service to bypass potential context issues
+          result = await investigationsAPI.createInvestigation({
+            ...formattedValues,
+            patientId,
+          });
+          toast({
+            title: "Investigation added",
+            description: "The investigation has been successfully added.",
+            status: "success",
+            duration: 3000,
+            isClosable: true,
+          });
+        }
+        
+        if (result) {
+          onSave(result);
+        } else {
+          throw new Error("Failed to save investigation");
+        }
+      } catch (error) {
+        console.error("Investigation save error:", error);
+        
+        toast({
+          title: isEditing ? "Error updating investigation" : "Error adding investigation",
+          description: error.message || "An unknown error occurred while saving the investigation",
+          status: "error",
+          duration: 5000,
+          isClosable: true,
+        });
+        
+        // Show additional debugging info in development environment
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('Investigation data:', {
+            isEditing,
+            patientId, 
+            investigationId: investigation?.id,
+            values: formik.values
+          });
+        }
+      }
+    },
+  });
+  
+  return (
+    <Modal 
+      isOpen={isOpen} 
+      onClose={() => {
+        // Reset form before closing
+        formik.resetForm();
+        onClose();
+      }}
+      size="md"
+      closeOnOverlayClick={false}
+    >
+      <ModalOverlay bg="blackAlpha.300" backdropFilter="blur(5px)" />
+      <ModalContent borderRadius="lg" boxShadow="xl">
+        <ModalHeader bgGradient="linear(to-r, brand.100, brand.200)" borderTopRadius="lg" py={4}>
+          <Flex align="center">
+            <Box color="brand.500" mr={2}>
+              {isEditing ? <FiEdit size={20} /> : <FiPlusCircle size={20} />}
+            </Box>
+            <Text color="gray.700" fontWeight="bold">
+              {isEditing ? 'Edit Investigation' : 'Add New Investigation'}
+            </Text>
+          </Flex>
+        </ModalHeader>
+        <ModalCloseButton 
+          color="gray.700" 
+          onClick={() => {
+            formik.resetForm();
+            onClose();
+          }}
+        />
+        
+        <ModalBody pt={6}>
+          <form onSubmit={formik.handleSubmit}>
+            <VStack spacing={4} align="stretch">
+              {/* Date Field */}
+              <FormControl isRequired isInvalid={formik.touched.date && formik.errors.date}>
+                <FormLabel htmlFor="date">Date</FormLabel>
+                <Input
+                  id="date"
+                  type="date"
+                  {...formik.getFieldProps('date')}
+                />
+                <FormErrorMessage>{formik.errors.date}</FormErrorMessage>
+              </FormControl>
+              
+              {/* Doctor Name Field */}
+              <FormControl>
+                <FormLabel htmlFor="doctor">Doctor Name</FormLabel>
+                <Input
+                  id="doctor"
+                  placeholder="Doctor who ordered/performed the investigation"
+                  {...formik.getFieldProps('doctor')}
+                />
+              </FormControl>
+              
+              {/* Details Field */}
+              <FormControl isRequired isInvalid={formik.touched.details && formik.errors.details}>
+                <FormLabel htmlFor="details">Details</FormLabel>
+                <Textarea
+                  id="details"
+                  placeholder="Enter investigation details"
+                  rows={3}
+                  {...formik.getFieldProps('details')}
+                />
+                <FormErrorMessage>{formik.errors.details}</FormErrorMessage>
+              </FormControl>
+              
+              {/* Additional Notes Field (Optional) */}
+              <FormControl>
+                <FormLabel htmlFor="notes">Additional Notes (Optional)</FormLabel>
+                <Textarea
+                  id="notes"
+                  placeholder="Any additional notes"
+                  rows={2}
+                  {...formik.getFieldProps('notes')}
+                />
+              </FormControl>
+              
+              {/* File URL Field (Optional) */}
+              <FormControl isInvalid={formik.touched.fileUrl && formik.errors.fileUrl}>
+                <FormLabel htmlFor="fileUrl">File URL (Optional)</FormLabel>
+                <Input
+                  id="fileUrl"
+                  type="url"
+                  placeholder="https://example.com/file.pdf"
+                  {...formik.getFieldProps('fileUrl')}
+                />
+                <FormErrorMessage>{formik.errors.fileUrl}</FormErrorMessage>
+              </FormControl>
+            </VStack>
+            
+            <ModalFooter px={0} mt={6} borderTop="1px" borderColor="gray.100" pt={4}>
+              <Button 
+                mr={3} 
+                onClick={() => {
+                  formik.resetForm();
+                  onClose();
+                }} 
+                variant="outline" 
+                borderColor="brand.200"
+                color="gray.600"
+                _hover={{ bg: "gray.50" }}
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="submit" 
+                bg="brand.100"
+                color="gray.700"
+                _hover={{ bg: "brand.200" }}
+                isLoading={formik.isSubmitting}
+                leftIcon={isEditing ? <FiSave /> : <FiPlusCircle />}
+                boxShadow="sm"
+              >
+                {isEditing ? 'Save Changes' : 'Add Investigation'}
+              </Button>
+            </ModalFooter>
+          </form>
+        </ModalBody>
+      </ModalContent>
+    </Modal>
+  );
+};
+
+
+
+
 
 export default PatientView;
