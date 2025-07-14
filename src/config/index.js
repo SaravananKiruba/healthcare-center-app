@@ -5,8 +5,8 @@
  */
 
 export const APP_CONFIG = {
-  name: 'Healthcare Center',
-  description: 'A comprehensive healthcare management system',
+  name: 'MediBoo',
+  description: 'SaaS Platform for Medical Practice Management',
   version: '1.0.0',
 }
 

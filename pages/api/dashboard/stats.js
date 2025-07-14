@@ -30,7 +30,9 @@ export default async function handler(req, res) {
       recentActivity: 0,
       myPatientCount: 0,
       recentCases: 0,
-      pendingReports: 0
+      pendingReports: 0,
+      clinicCount: 0,
+      branchCount: 0
     };
     
     // Common date filter for "recent" items (last 30 days)
@@ -41,20 +43,25 @@ export default async function handler(req, res) {
     switch (userRole) {
       case 'superadmin':
         // SuperAdmin gets global stats
-        stats.userCount = await prisma.user.count();
-        stats.patientCount = await prisma.patient.count();
-        stats.investigationCount = await prisma.investigation.count();
-        stats.clinicCount = await prisma.clinic.count();
-        stats.branchCount = await prisma.branch.count();
-        
-        // Recent activity = new patients in the last 30 days
-        stats.recentActivity = await prisma.patient.count({
-          where: {
-            createdAt: {
-              gte: thirtyDaysAgo
+        try {
+          stats.userCount = await prisma.user.count();
+          stats.patientCount = await prisma.patient.count();
+          stats.investigationCount = await prisma.investigation.count();
+          stats.clinicCount = await prisma.clinic.count();
+          stats.branchCount = await prisma.branch.count();
+          
+          // Recent activity = new patients in the last 30 days
+          stats.recentActivity = await prisma.patient.count({
+            where: {
+              createdAt: {
+                gte: thirtyDaysAgo
+              }
             }
-          }
-        });
+          });
+        } catch (error) {
+          console.error('Error fetching superadmin stats:', error);
+          // Keep default values
+        }
         break;
         
       case 'clinicadmin':

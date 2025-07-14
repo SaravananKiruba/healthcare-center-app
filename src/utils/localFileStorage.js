@@ -12,5 +12,5 @@
  * @returns {String} - URL of the default logo
  */
 export const getDefaultLogoUrl = () => {
-  return process.env.NEXT_PUBLIC_DEFAULT_LOGO_URL || '/logo192.png';
+  return process.env.NEXT_PUBLIC_DEFAULT_LOGO_URL || '/mediboo-logo.svg';
 };

@@ -165,8 +165,7 @@ const PatientView = ({ patientId }) => {
             </Button>
           </Link>
           <Flex align="center">
-            <Heading size="lg" mr={2}>Patient Detail</Heading>
-            <Badge bg="brand.300" color="white" fontSize="md" p={1} borderRadius="md">MediBOO</Badge>
+            <Heading size="lg">Patient Detail</Heading>
           </Flex>
         </HStack>
         

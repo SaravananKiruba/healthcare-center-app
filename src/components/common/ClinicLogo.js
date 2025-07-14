@@ -30,7 +30,7 @@ const ClinicLogo = ({
   
   // Get the appropriate logo URL
   const logoUrl = clinicBranding?.logoUrl || getDefaultLogoUrl();
-  const clinicName = session?.user?.clinicName || 'Healthcare Center';
+  const clinicName = session?.user?.clinicName || clinicBranding?.clinicName || 'MediBoo';
   
   // Horizontal variant (logo and text side by side)
   if (variant === 'horizontal') {
@@ -65,14 +65,6 @@ const ClinicLogo = ({
             >
               {clinicName}
             </Heading>
-            <Text 
-              fontSize={size === 'sm' ? 'xs' : 'sm'} 
-              color="brand.500" 
-              fontWeight="medium" 
-              mt="1"
-            >
-              Patient Management System
-            </Text>
           </Box>
         )}
       </Box>
@@ -112,14 +104,6 @@ const ClinicLogo = ({
           >
             {clinicName}
           </Heading>
-          <Text 
-            fontSize={size === 'sm' ? 'xs' : 'sm'} 
-            color="brand.500" 
-            fontWeight="medium" 
-            mt="1"
-          >
-            Patient Management System
-          </Text>
         </Box>
       )}
     </Box>

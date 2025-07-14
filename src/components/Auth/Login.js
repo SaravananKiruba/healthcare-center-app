@@ -116,7 +116,7 @@ const Login = () => {
         <CardHeader>
           <Center>
             <Heading size="lg" color="brand.500">
-              Healthcare Center
+              MediBoo
             </Heading>
           </Center>
           <Text textAlign="center" color="gray.500" mt={2}>

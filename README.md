@@ -1,4 +1,6 @@
-# Healthcare Center Management System
+# MediBoo - Healthcare SaaS Platform
+
+A comprehensive multi-tenant healthcare management system built as a SaaS platform for clinics and healthcare providers.
 
 A comprehensive Next.js web application for healthcare centers to manage patients, investigations, reports, and user accounts. Built as a true multi-tenant SaaS platform with clinic-specific customization.
 

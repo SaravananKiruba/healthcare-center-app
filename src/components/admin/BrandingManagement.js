@@ -260,7 +260,7 @@ const BrandingManagement = ({ clinicId }) => {
                     position="relative"
                   >
                     <Image 
-                      src={logoPreview || branding.logoUrl || '/logo192.png'} 
+                      src={logoPreview || branding.logoUrl || '/mediboo-logo.svg'} 
                       alt="Clinic Logo"
                       objectFit="contain"
                       w="full"

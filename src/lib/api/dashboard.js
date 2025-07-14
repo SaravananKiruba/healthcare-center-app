@@ -13,6 +13,18 @@ export async function getDashboardStats() {
     return response.data;
   } catch (error) {
     console.error('Error fetching dashboard stats:', error);
-    throw new Error('Failed to fetch dashboard statistics');
+    
+    // Return default stats object instead of throwing error
+    return {
+      userCount: 0,
+      patientCount: 0,
+      investigationCount: 0,
+      recentActivity: 0,
+      myPatientCount: 0,
+      recentCases: 0,
+      pendingReports: 0,
+      clinicCount: 0,
+      branchCount: 0
+    };
   }
 }

@@ -14,7 +14,7 @@ function DynamicHead() {
   
   return (
     <Head>
-      <title>{clinicBranding?.clinicName || 'Healthcare Center'}</title>
+      <title>{clinicBranding?.clinicName || 'MediBoo'}</title>
       {clinicBranding?.faviconUrl && (
         <link rel="icon" href={clinicBranding.faviconUrl} />
       )}
